@@ -5,6 +5,8 @@ The 3DS port is the active work.
 
 ## Layout
 - `src_lua/` - the game's Lua source and assets, extracted from Balatro.exe. Read-only: never modify.
+  Not in git (gitignored; Balatro's own files must never be committed): recreate it from your own copy with
+  `unzip ~/.local/share/Steam/steamapps/common/Balatro/Balatro.exe -d src_lua` (unzip warns about the exe header).
 - `src/` - desktop C port (raylib). Only touch it for bugs shared with the 3DS port (apply the fix to both).
 - `src_3ds/` - 3DS port (devkitARM, libctru, citro3d, ndsp). `src_3ds/PORTING_NOTES.md` is the detailed
   design doc (screen layout rules, shader approximations, memory collector, debug keys). Read it first.

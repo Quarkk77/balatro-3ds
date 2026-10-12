@@ -1,6 +1,8 @@
 # build outputs (regenerate with cmake/ninja for desktop, make in src_3ds for 3DS)
 /build/
 /build_3ds/
+# Balatro's own files (extracted from Balatro.exe; never commit them)
+/src_lua/
 # local archives
 *.zip
 
