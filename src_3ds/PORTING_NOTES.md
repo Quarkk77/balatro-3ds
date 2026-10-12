@@ -73,7 +73,7 @@ sounds, shader files (only their names are used), fonts except the GoNoto fallba
 - Saves: `sdmc:/3ds/balatro_c/` (same .jkr format as the desktop build, so saves can be copied across).
 - Sound needs the DSP firmware dump at `sdmc:/3ds/dspfirm.cdc` (made by the DSP1 homebrew); without it the
   game runs silent.
-- Top screen: the game at 400x240. Bottom screen: the same picture scaled to 320x192; touching it is the
+- Top screen: the game at 400x240. Bottom screen: the same picture stretched to 320x240 (0.8x wide); touching it is the
   mouse, using the game's own touch mode (`HID 'touch'`, as LOVE reports touches).
 - Buttons are the gamepad (the game's controller support): A/B/X/Y, L/R shoulders, ZL/ZR triggers,
   Start/Select, D-pad, Circle Pad = left stick, C-stick (New 3DS) = right stick.
@@ -118,7 +118,7 @@ sounds, shader files (only their names are used), fonts except the GoNoto fallba
   only; while still far from their place they are drawn further down, so they fly in from below the top
   screen. Discarded cards stay on the screen they were last on. Attention text (scoring popups, the
   "-1" on hands/discards) follows the screen of the element it is attached to.
-- The main menu shows `PORT_VERSION` ("3DS-b.0.2", game.h); `G.VERSION` stays the game's own version
+- The main menu shows `PORT_VERSION` ("3DS-b.0.2.1", game.h); `G.VERSION` stays the game's own version
   because it is written into saves. Debug screenshots also write `shot_NN_bottom.png`.
 - Textures: PNGs are decoded with stb_image on first draw (lazy, to save memory) and cut into power-of-two
   tiles of at most 1024x1024; a quad that spans tiles is drawn in pieces. The two studio logos are

@@ -3,8 +3,8 @@
  *
  * Differences from the desktop raylib layer:
  *  - The game "window" is 400x240. Everything is drawn into an offscreen
- *    400x240 target which is shown 1:1 on the top screen and scaled down on
- *    the bottom screen, where touches act as the mouse.
+ *    400x240 target which is shown 1:1 on the top screen and stretched to
+ *    fill the bottom screen, where touches act as the mouse.
  *  - The PICA200 has no programmable fragment stage, so LOVE's GLSL shaders
  *    are not compiled. Each shader name maps to an approximation built from
  *    the fixed function texture combiners (see shader_apply).
@@ -30,8 +30,8 @@
 #define WIN_H 240
 #define BOTTOM_W 320
 #define BOTTOM_H 240
-/* the 400x240 picture scaled to the 320 wide bottom screen */
-#define BOT_VIEW_H 192
+/* the 400x240 picture stretched to fill the 320x240 bottom screen (0.8x wide) */
+#define BOT_VIEW_H 240
 #define BOT_VIEW_Y ((BOTTOM_H - BOT_VIEW_H) / 2)
 
 #define DISPLAY_TRANSFER_FLAGS \
@@ -1244,7 +1244,7 @@ void gfx_end_frame(void) {
     recording = false;
     replay(GFX_SCREEN_TOP, screen_canvas);
     replay(GFX_SCREEN_BOTTOM, bottom_canvas);
-    /* top screen 1:1, bottom screen scaled to 320x192 */
+    /* top screen 1:1, bottom screen stretched to 320x240 */
     C3D_RenderTargetClear(bot_target, C3D_CLEAR_ALL, 0x000000FF, 0);
     bind_target(top_target, WIN_W, WIN_H, true);
     present_quad(screen_canvas, 0, 0, WIN_W, WIN_H);
