@@ -1,0 +1,34 @@
+; vshader.v.pica - the only vertex shader of the 3DS build.
+; Vertices arrive already transformed into target pixel coordinates (the
+; love.graphics transform stack is applied on the CPU), so this only applies
+; the target's orthographic projection and scales the 0..255 vertex colour.
+
+.fvec projection[4]
+
+.constf myconst(0.0, 1.0, 0.00392156862745, 0.0)
+.alias zeros myconst.xxxx
+.alias ones myconst.yyyy
+.alias rgba_scale myconst.zzzz
+
+.out outpos position
+.out outtc0 texcoord0
+.out outclr color
+
+.alias inpos v0
+.alias intex v1
+.alias inclr v2
+
+.proc main
+	mov r0.xy, inpos
+	mov r0.z, zeros
+	mov r0.w, ones
+
+	dp4 outpos.x, projection[0], r0
+	dp4 outpos.y, projection[1], r0
+	dp4 outpos.z, projection[2], r0
+	dp4 outpos.w, projection[3], r0
+
+	mov outtc0, intex
+	mul outclr, rgba_scale, inclr
+	end
+.end

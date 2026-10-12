@@ -1,0 +1,5 @@
+# build outputs (regenerate with cmake/ninja for desktop, make in src_3ds for 3DS)
+/build/
+/build_3ds/
+# local archives
+*.zip
