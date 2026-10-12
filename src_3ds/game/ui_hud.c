@@ -649,14 +649,18 @@ UIDef *create_UIBox_blind_choice(const char *type, bool run_info) {
     UIConfig *root_cfg = CFG(.id = type, .align = "tm", .func = G_FUNCS_blind_choice_handler, .minh = !run_info ? 10 : 0, .r = 0.1, .padding = 0.05);
     root_cfg->num = run_info ? 1 : 0;   /* ref_table.run_info */
     UIDef *t = UIR(root_cfg,
-        UIR(CFG(.align = "cm", .colour = mix_colours(G.C.BLACK, G.C.L_BLACK, 0.5), .r = 0.1, .outline = 1, .outline_colour = G.C.L_BLACK),
-            UIR(CFG(.align = "cm", .padding = 0.2), button),
-            UIR(CFG(.id = "blind_name", .align = "cm", .padding = 0.07),
+        /* 3DS (blind select only): the Select button is bottom screen only and the
+         * blind info top screen only; the box closes up on each screen */
+        UIR(CFG(.align = "cm", .colour = mix_colours(G.C.BLACK, G.C.L_BLACK, 0.5), .r = 0.1, .outline = 1, .outline_colour = G.C.L_BLACK,
+                .draw3ds = run_info ? 0 : DRAW3DS_SPLIT_BOX),
+            UIR(CFG(.align = "cm", .padding = 0.2, .screen_mask = run_info ? 0 : GFX_SCREEN_BOTTOM), button),
+            UIR(CFG(.id = "blind_name", .align = "cm", .padding = 0.07, .draw3ds = run_info ? 0 : DRAW3DS_SHIFT,
+                    .screen_mask = run_info ? 0 : GFX_SCREEN_TOP),
                 UIR(CFG(.align = "cm", .r = 0.1, .outline = 1, .outline_colour = blind_col, .colour = darken(blind_col, 0.3), .minw = 2.9, .emboss = 0.1,
                         .padding = 0.07, .line_emboss = 1),
                     UIO(CFG(.object = &DYNATEXT(DT_STR(loc_name), DT_COL1(txt), .shadow = !disabled, .float_ = !disabled, .y_offset = -4, .scale = 0.45,
                                                 .maxw = 2.8)->n)))),
-            UIR(CFG(.align = "cm", .padding = 0.05),
+            UIR(CFG(.align = "cm", .padding = 0.05, .draw3ds = run_info ? 0 : DRAW3DS_SHIFT, .screen_mask = run_info ? 0 : GFX_SCREEN_TOP),
                 UIR(CFG(.id = "blind_desc", .align = "cm", .padding = 0.05),
                     UIR(CFG(.align = "cm"),
                         UIR(CFG(.align = "cm", .minh = 1.5), UIO(CFG(.object = &animation->n))),
@@ -671,7 +675,10 @@ UIDef *create_UIBox_blind_choice(const char *type, bool run_info) {
                         UIIF(reward, UIR(CFG(.align = "cm"),
                             UIT(CFG(.text = LOC("ph_blind_reward"), .scale = 0.35, .colour = txt, .shadow = !disabled)),
                             UIT(CFG(.text = dollars.buf, .scale = 0.35, .colour = disabled ? G.C.UI.TEXT_INACTIVE : G.C.MONEY, .shadow = !disabled)))))))),
-        UIR(CFG(.id = "blind_extras", .align = "cm"), extras ? extras : UISKIP));
+        /* 3DS: for small/big blinds the extras are "or" + skip tag + Skip Blind:
+         * bottom screen only; the boss's "Up the Ante" is blind info: top only */
+        UIR(CFG(.id = "blind_extras", .align = "cm", .draw3ds = run_info ? 0 : DRAW3DS_SHIFT,
+                .screen_mask = run_info ? 0 : (bt == BT_SMALL || bt == BT_BIG) ? GFX_SCREEN_BOTTOM : GFX_SCREEN_TOP), extras ? extras : UISKIP));
     sb_free(&dollars);
     for (int i = 0; i < ntext; i++) free(text_table[i]);
     return t;

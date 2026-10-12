@@ -66,7 +66,7 @@ $(BUILD)/$(TARGET).elf: $(OFILES)
 # ---------------------------------------------------------------- assets
 # 2x textures and the GoNoto fallback fonts are left out to keep the size
 # (and memory use) down.
-$(ROMFS_DIR)/.stamp: $(MAKEFILE_LIST)
+$(ROMFS_DIR)/.stamp: $(MAKEFILE_LIST) $(META)/gamepad_ui_3ds.png
 	@mkdir -p $(ROMFS_DIR)/resources/textures $(ROMFS_DIR)/resources/fonts
 	cp -r $(LUA_SRC)/resources/textures/1x $(ROMFS_DIR)/resources/textures/
 	cp -r $(LUA_SRC)/resources/sounds $(LUA_SRC)/resources/shaders $(ROMFS_DIR)/resources/
@@ -75,6 +75,7 @@ $(ROMFS_DIR)/.stamp: $(MAKEFILE_LIST)
 	   $(LUA_SRC)/resources/fonts/NotoSansSC-Bold.ttf $(LUA_SRC)/resources/fonts/NotoSansTC-Bold.ttf \
 	   $(ROMFS_DIR)/resources/fonts/
 	cp -r $(LUA_SRC)/localization $(ROMFS_DIR)/
+	cp $(META)/gamepad_ui_3ds.png $(ROMFS_DIR)/resources/textures/1x/gamepad_ui.png
 	@touch $@
 romfs: $(ROMFS_DIR)/.stamp
 

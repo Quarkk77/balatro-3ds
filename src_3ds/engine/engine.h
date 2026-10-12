@@ -488,8 +488,18 @@ typedef struct {
     Col empty_col, filled_col;
 } ProgressBar;
 
+/* 3DS: a box laid out once but drawn differently per screen (blind select).
+ * SPLIT_BOX: its first child shows on the bottom screen and the rest on the
+ *   top; on the top screen the box is drawn without the first child's height,
+ *   on the bottom screen with only that height.
+ * SHIFT: drawn moved up by what the last SPLIT_BOX removed on that screen;
+ *   on the bottom screen taps and tooltips follow (see ui3ds_bottom_shift). */
+enum { DRAW3DS_NONE = 0, DRAW3DS_SPLIT_BOX, DRAW3DS_SHIFT };
+double ui3ds_bottom_shift(Node *n);   /* game units the bottom screen draws n higher by */
 struct UIConfig {
     int screen_mask;           /* 3DS: 0 = same screens as its parent, else GFX_SCREEN_* */
+    int draw3ds;               /* 3DS: per-screen layout tweak, DRAW3DS_* */
+    double shift3ds_top, shift3ds_bottom;   /* 3DS: last shift used for a DRAW3DS_SHIFT element */
     /* layout */
     const char *align;
     double padding;          /* nil -> UIT_PADDING */

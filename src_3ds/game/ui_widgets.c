@@ -97,11 +97,14 @@ UIDef *create_UIBox_generic_options(GenericOptionsArgs a) {
 UIDef *create_button_binding_pip(const char *button, double scale) {
     static const char *names[] = { "a", "b", "x", "y", "leftshoulder", "rightshoulder", "triggerleft", "triggerright", "start", "back",
                                    "dpadup", "dpadright", "dpaddown", "dpadleft", "left", "right", "leftstick", "rightstick", "guide" };
-    int vals[] = { G.F_SWAP_AB_PIPS ? 1 : 0, G.F_SWAP_AB_PIPS ? 0 : 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 19 };
+    /* 3DS: always the Nintendo row of gamepad_ui.png. That row is laid out by
+     * position (the Xbox "A" slot shows B), but the 3DS buttons are mapped by
+     * name (3DS A = "a"), so the face buttons are swapped back here. START and
+     * SELECT replace "+" / "-" in the 3DS copy of the atlas (meta/). */
+    int vals[] = { 1, 0, 3, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 19 };
     int x = 0;
     for (size_t i = 0; i < sizeof names / sizeof *names; i++) if (str_eq(button, names[i])) x = vals[i];
-    const char *con = G.CONTROLLER.GAMEPAD_CONSOLE;
-    int y = !strcmp(con, "Nintendo") ? 2 : !strcmp(con, "Playstation") ? (G.F_PS4_PLAYSTATION_GLYPHS ? 3 : 1) : 0;
+    int y = 2;
     double s = scale ? scale : 0.45;
     Sprite *sp = sprite_new(0, 0, s, s, atlas_get("gamepad_ui"), (SpritePos){ x, y });
     return UIROOT(CFG(.align = "cm", .colour = G.C.CLEAR), UIO(CFG(.object = &sp->n)));
@@ -110,16 +113,13 @@ UIDef *create_button_binding_pip(const char *button, double scale) {
 GF_IMPL(set_button_pip) {
     FocusArgs *fa = e->config->focus_args;
     Node *pip = child_get(&e->n, "button_pip");
-    if (G.CONTROLLER.HID.controller && fa && !pip) {
+    /* 3DS: button glyphs are always shown, touch screen or not */
+    if (fa && !pip) {
         Vec2 off = fa->has_offset ? fa->offset : (str_eq(fa->orientation, "bm") ? (Vec2){ 0, 0.02 } : (Vec2){ 0.1, 0.02 });
         UIBox *b = uibox_new(create_button_binding_pip(fa->button, fa->scale),
                              UIBCFG(.align = fa->orientation ? fa->orientation : "cr", .has_offset = true, .offset = off, .major = &e->n, .parent = &e->n));
         b->n.states.collide.can = false;
         child_set(&e->n, "button_pip", &b->n);
-    }
-    if (!G.CONTROLLER.HID.controller && pip) {
-        child_set(&e->n, "button_pip", NULL);
-        node_remove(pip);
     }
 }
 

@@ -280,6 +280,16 @@ int main(int argc, char **argv) {
     /* test hook: TEST_LOADOUT=1 gives 5 negative random Tarot/Planet cards and
      * 5 random jokers when a run first reaches blind select */
     bool loadout = dbg_get("TEST_LOADOUT") != NULL, loadout_done = false;
+    /* test hook: TEST_STRAIGHT=1 turns five cards of the first hand into a
+     * 5-9 straight of foil Mult cards */
+    bool straight = dbg_get("TEST_STRAIGHT") != NULL, straight_done = false;
+    /* test hook: TEST_BIGCARD=1 gives the first card of the first hand a
+     * permanent bonus so it is worth about 10^6 chips */
+    bool bigcard = dbg_get("TEST_BIGCARD") != NULL || dbg_get("TEST_BIGCARD_EXP") || dbg_get("TEST_NANEINF"), bigcard_done = false;
+    /* TEST_BIGCARD_EXP=n: worth 10^n chips instead; TEST_NANEINF=1: 10^308 chips
+     * plus a Mult enhancement, so chips x mult overflows like the original's "naneinf" */
+    double bigcard_exp = dbg_get("TEST_BIGCARD_EXP") ? atof(dbg_get("TEST_BIGCARD_EXP")) : 6;
+    bool naneinf = dbg_get("TEST_NANEINF") != NULL;
     int gc_last_size = 0;
     double gc_last_time = 0;
     while (!G.quit_requested && aptMainLoop()) {
@@ -298,6 +308,24 @@ int main(int argc, char **argv) {
         last = now;
         dt_smooth = MIN(0.8 * dt_smooth + 0.2 * dt, 0.1);
         game_update(dt_smooth);
+        if (straight && !straight_done && G.STAGE == STAGE_RUN && G.STATE == STATE_SELECTING_HAND && G.hand && G.hand->cards.count >= 5) {
+            straight_done = true;
+            static const char *keys[5] = { "H_5", "S_6", "D_7", "C_8", "H_9" };
+            for (int i = 0; i < 5; i++) {
+                Card *c = G.hand->cards.items[i];
+                Card_set_base(c, P_CARD(keys[i]), false);
+                Card_set_ability(c, P_CENTER("m_mult"), false, false);
+                Card_set_edition(c, edition_req_from_key("foil"), true, true);
+            }
+        }
+        if (bigcard && !bigcard_done && G.STAGE == STAGE_RUN && G.STATE == STATE_SELECTING_HAND && G.hand && G.hand->cards.count > 0) {
+            bigcard_done = true;
+            Card *c = G.hand->cards.items[0];
+            if (naneinf) {
+                Card_set_ability(c, P_CENTER("m_mult"), false, false);
+                c->ability.perma_bonus = 1e308;
+            } else c->ability.perma_bonus = pow(10, bigcard_exp) - c->base.nominal;
+        }
         if (loadout && !loadout_done && G.STAGE == STAGE_RUN && G.STATE == STATE_BLIND_SELECT && G.jokers && G.consumeables) {
             loadout_done = true;
             for (int i = 0; i < 5; i++) {

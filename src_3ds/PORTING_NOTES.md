@@ -76,7 +76,11 @@ sounds, shader files (only their names are used), fonts except the GoNoto fallba
 - Top screen: the game at 400x240. Bottom screen: the same picture scaled to 320x192; touching it is the
   mouse, using the game's own touch mode (`HID 'touch'`, as LOVE reports touches).
 - Buttons are the gamepad (the game's controller support): A/B/X/Y, L/R shoulders, ZL/ZR triggers,
-  Start/Select, D-pad, Circle Pad = left stick, C-stick (New 3DS) = right stick. Glyphs use the Nintendo set.
+  Start/Select, D-pad, Circle Pad = left stick, C-stick (New 3DS) = right stick.
+- Button glyphs are always shown (also when playing by touch), always from the Nintendo row of
+  gamepad_ui.png with the face buttons mapped to the 3DS button that triggers them (A confirm, B back,
+  X play, Y discard). `meta/gamepad_ui_3ds.png` is a copy of the 1x atlas with START / SELECT pills in
+  place of Switch "+" / "-"; the Makefile installs it into romfs. The game never prompts for L3/R3.
 
 ### What was replaced
 - raylib -> `gfx/gfx_3ds.c` (citro3d) and `gfx/audio_3ds.c` (ndsp). `gfx.h` is the same interface.
@@ -97,8 +101,17 @@ sounds, shader files (only their names are used), fonts except the GoNoto fallba
   Also per screen: the blind panel (G.HUD_blind, the blind select prompt and the Blind chip) is top only;
   round score and chips x mult are bottom only. Run Info / Options are wider (3.6) with larger text.
   Tooltips and drag popups (G.I.POPUP) use the screen of the element they belong to.
-  Cards in hand (and the hand area, which draws them) are bottom screen only.
-- The main menu shows `PORT_VERSION` ("3DS-b.0.1.2", game.h); `G.VERSION` stays the game's own version
+  Blind select: the bottom screen shows only each blind's Select (or Upcoming) button and, for small/big
+  blinds, "or" + skip tag + Skip Blind; the top screen shows only the blind info (name, chip, score,
+  reward, boss "Up the Ante"). One layout, drawn per screen with `UIConfig.draw3ds`: SPLIT_BOX draws the
+  box with only its first child's height on the bottom and without it on top; SHIFT draws an element moved
+  up by what that removed. On the bottom screen taps (Node_collides_with_point) and tooltips follow the
+  shifted drawing (ui3ds_bottom_shift).
+  Cards in hand (and the hand area, which draws them) are bottom screen only. Played cards (G.play) are top screen
+  only; while still far from their place they are drawn further down, so they fly in from below the top
+  screen. Discarded cards stay on the screen they were last on. Attention text (scoring popups, the
+  "-1" on hands/discards) follows the screen of the element it is attached to.
+- The main menu shows `PORT_VERSION` ("3DS-b.0.1.3", game.h); `G.VERSION` stays the game's own version
   because it is written into saves. Debug screenshots also write `shot_NN_bottom.png`.
 - Textures: PNGs are decoded with stb_image on first draw (lazy, to save memory) and cut into power-of-two
   tiles of at most 1024x1024; a quad that spans tiles is drawn in pieces. The two studio logos are
@@ -138,7 +151,13 @@ sounds, shader files (only their names are used), fonts except the GoNoto fallba
 ### Debug / test hooks
 Put `KEY=value` lines in `sdmc:/3ds/balatro_c/debug.txt` (same keys as the desktop env vars without the
 `BALATRO_` prefix): `SHOTS`, `QUIT_AFTER`, `SCRIPT`, `TEST_SEED`, `TEST_EASY`, `FPS`, plus `TEST_LOADOUT=1` (5 negative
-random Tarot/Planet cards and 5 random jokers when a run first reaches blind select). While that file exists,
+random Tarot/Planet cards and 5 random jokers when a run first reaches blind select) and `TEST_STRAIGHT=1`
+(the first hand's five leftmost cards become a 5-9 straight of foil Mult cards) and `TEST_BIGCARD=1` (the
+first hand's leftmost card gets a permanent chip bonus making it worth 10^6 chips; it unlocks the score
+achievements in whatever profile it is used with). `TEST_BIGCARD_EXP=n` makes that card worth 10^n chips
+instead, and `TEST_NANEINF=1` gives it 10^308 chips plus the Mult enhancement so the score overflows to
+infinity and shows "naneinf" as in the original (a save then holds `inf`, which loads as nil, also as in
+the original). While that file exists,
 stderr goes to `log.txt` next to it, and screenshots (`shot_NN.png`, read back from the 400x240 target)
 are written there too. `SCRIPT` also accepts `t:button=name` (LOVE gamepad names: a, b, x, y, dpup,
 leftshoulder, start...). FPS lines include heap and free linear memory.

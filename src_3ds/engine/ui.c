@@ -517,6 +517,70 @@ static Node *UIElement_can_drag(Node *n) {
 
 static void UIElement_draw_noop(Node *n) { (void)n; }
 
+static void draw_child(Node *v, UIConfig *vc) {
+    bool has_self = v->vt->draw_self != NULL;
+    bool draw_after = vc && vc->draw_after;
+    if (has_self && !draw_after) v->vt->draw_self(v); else node_draw(v);
+    if (v->vt->draw_children) v->vt->draw_children(v);
+    if (has_self && draw_after) v->vt->draw_self(v); else node_draw(v);
+}
+
+/* height (game units) the last SPLIT_BOX removed on each screen */
+static double split_top, split_bottom;
+
+static void draw_child_3ds(Node *v, UIConfig *vc) {
+    int cur = gfx_get_screen_mask();
+    if (vc->draw3ds == DRAW3DS_SPLIT_BOX) {
+        Node *first = v->children.count ? v->children.items[0].node : NULL;
+        double fh = first && first->T ? first->T->h : 0;
+        split_top = fh;
+        split_bottom = v->T->h - fh;
+        double h = v->VT.h;
+        if (cur & GFX_SCREEN_BOTTOM) {
+            gfx_set_screen_mask(cur & GFX_SCREEN_BOTTOM);
+            v->VT.h = h - split_bottom;
+            if (v->vt->draw_self) v->vt->draw_self(v);
+        }
+        if (cur & GFX_SCREEN_TOP) {
+            gfx_set_screen_mask(GFX_SCREEN_TOP);
+            v->VT.h = h - split_top;
+            if (v->vt->draw_self) v->vt->draw_self(v);
+        }
+        v->VT.h = h;
+        gfx_set_screen_mask(cur);
+        if (v->vt->draw_children) v->vt->draw_children(v);
+        return;
+    }
+    vc->shift3ds_top = split_top;
+    vc->shift3ds_bottom = split_bottom;
+    for (int pass = 0; pass < 2; pass++) {
+        int scr = pass ? GFX_SCREEN_TOP : GFX_SCREEN_BOTTOM;
+        if (!(cur & scr)) continue;
+        gfx_set_screen_mask(scr);
+        gfx_push();
+        gfx_translate(0, -(pass ? split_top : split_bottom) * G.TILESCALE * G.TILESIZE);
+        draw_child(v, vc);
+        gfx_pop();
+    }
+    gfx_set_screen_mask(cur);
+}
+
+/* the shift a DRAW3DS_SHIFT ancestor applies to n on the bottom screen,
+ * following UI parents and the elements that host UIBoxes / objects */
+double ui3ds_bottom_shift(Node *n) {
+    for (int depth = 0; n && depth < 64; depth++) {
+        if (IS(n, NT_UIELEMENT)) {
+            UIElement *e = (UIElement *)n;
+            if (e->config && e->config->draw3ds == DRAW3DS_SHIFT) {
+                /* only if the element is actually shown on the bottom screen */
+                return (e->config->screen_mask & GFX_SCREEN_TOP) && !(e->config->screen_mask & GFX_SCREEN_BOTTOM) ? 0 : e->config->shift3ds_bottom;
+            }
+            n = n->parent ? n->parent : (e->UIBox ? &e->UIBox->n : NULL);
+        } else n = n->parent;
+    }
+    return 0;
+}
+
 void UIElement_draw_children(Node *n) {
     if (!n->states.visible) return;
     for (int i = 0; i < n->children.count; i++) {
@@ -526,13 +590,10 @@ void UIElement_draw_children(Node *n) {
         bool is_uie = IS(v, NT_UIELEMENT);
         UIConfig *vc = is_uie ? ((UIElement *)v)->config : NULL;
         if (vc && vc->draw_layer) continue;
-        bool has_self = v->vt->draw_self != NULL;
-        bool draw_after = vc && vc->draw_after;
         int prev_mask = 0;
         if (vc && vc->screen_mask) { prev_mask = gfx_get_screen_mask(); gfx_set_screen_mask(vc->screen_mask); }
-        if (has_self && !draw_after) v->vt->draw_self(v); else node_draw(v);
-        if (v->vt->draw_children) v->vt->draw_children(v);
-        if (has_self && draw_after) v->vt->draw_self(v); else node_draw(v);
+        if (vc && vc->draw3ds) draw_child_3ds(v, vc);
+        else draw_child(v, vc);
         if (prev_mask) gfx_set_screen_mask(prev_mask);
     }
 }

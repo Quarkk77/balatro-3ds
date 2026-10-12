@@ -563,7 +563,8 @@ void game_update(double dt) {
  *  - main menu (after the splash): buttons, menus opened from them and their
  *    cards and tooltips on the bottom screen only; the background and screen
  *    wipes on both
- *  - in a run: cards in hand on the bottom; the blind panel (and its chip) and the round stats on top; round
+ *  - in a run: cards in hand on the bottom, played cards (and their scoring
+ *    popups) on top; the blind panel (and its chip) and the round stats on top; round
  *    score, chips x mult and the Run Info / Options buttons on the bottom (set
  *    with UIBox/UIConfig screen_mask in ui_hud.c); everything else on both */
 static int screen_for(Node *n);
@@ -583,6 +584,9 @@ static int effective_screen(Node *n, int depth) {
             UIBox *b = (UIBox *)n;
             if (b->screen_mask) return b->screen_mask;
             if (n->parent) { n = n->parent; continue; }   /* box held by a UIT.O element */
+        } else if (n->parent && IS(n->parent, NT_UIELEMENT)) {
+            n = n->parent;   /* an object (sprite, text) shown inside a UI element */
+            continue;
         }
         return screen_for(n);
     }
@@ -590,8 +594,9 @@ static int effective_screen(Node *n, int depth) {
 }
 
 static int screen_for(Node *n) {
-    /* tooltips and drag popups follow whatever they belong to */
-    if (IS(n, NT_UIBOX) && ptrvec_contains(&G.I.POPUP, n)) {
+    /* tooltips, drag popups and attention text (scoring popups) follow
+     * whatever they belong to */
+    if (IS(n, NT_UIBOX) && (((UIBox *)n)->attention_text || ptrvec_contains(&G.I.POPUP, n))) {
         UIBox *b = (UIBox *)n;
         Node *owner = b->config ? (b->config->parent ? b->config->parent : b->config->major) : NULL;
         if (owner && owner != n) return effective_screen(owner, 0);
@@ -604,11 +609,14 @@ static int screen_for(Node *n) {
     if (G.SPLASH_LOGO && n == &G.SPLASH_LOGO->n) return GFX_SCREEN_TOP;
     if (G.title_top && n == &G.title_top->n) return GFX_SCREEN_TOP;
     if (G.hand && n == &G.hand->n) return GFX_SCREEN_BOTTOM;   /* the hand area draws its own cards */
+    if (G.play && n == &G.play->n) return GFX_SCREEN_TOP;
     if (IS(n, NT_CARD)) {
         Card *c = (Card *)n;
         if (G.title_top && c->area == G.title_top) return GFX_SCREEN_TOP;
         if (G.splash_jimbo && c == G.splash_jimbo) return GFX_SCREEN_BOTTOM;
-        if (G.hand && c->area == G.hand) return GFX_SCREEN_BOTTOM;   /* cards in hand */
+        if (G.hand && c->area == G.hand) return c->screen3ds = GFX_SCREEN_BOTTOM;   /* cards in hand */
+        if (G.play && c->area == G.play) return c->screen3ds = GFX_SCREEN_TOP;      /* played cards */
+        if (G.discard && c->area == G.discard && c->screen3ds) return c->screen3ds; /* where it came from */
     }
     if (G.STAGE == STAGE_MAIN_MENU && G.STATE != STATE_SPLASH) return GFX_SCREEN_BOTTOM;
     return GFX_SCREEN_BOTH;
@@ -619,6 +627,19 @@ static void draw_node(Node *n) {
     int prev = gfx_get_screen_mask();
     gfx_set_screen_mask(screen_for(n));
     gfx_push();
+    /* 3DS: tooltips of something drawn higher on the bottom screen move with it */
+    if (IS(n, NT_UIBOX) && ptrvec_contains(&G.I.POPUP, n) && gfx_get_screen_mask() == GFX_SCREEN_BOTTOM) {
+        UIBox *b = (UIBox *)n;
+        Node *owner = b->config ? (b->config->parent ? b->config->parent : b->config->major) : NULL;
+        double sh = owner ? ui3ds_bottom_shift(owner) : 0;
+        if (sh) gfx_translate(0, -sh * G.TILESCALE * G.TILESIZE);
+    }
+    /* 3DS: a card on its way from the hand (bottom screen) to the play area is
+     * drawn further below its target, so it flies in from below the top screen */
+    if (IS(n, NT_CARD) && G.play && ((Card *)n)->area == G.play) {
+        double d = n->VT.y - n->T->y;
+        if (d > 0.5) gfx_translate(0, 2.3 * (d - 0.5) * G.TILESCALE * G.TILESIZE);
+    }
     Node_translate_container(n);
     node_draw(n);
     gfx_pop();

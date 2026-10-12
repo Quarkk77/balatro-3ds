@@ -324,6 +324,7 @@ typedef struct CardUITable CardUITable;
 
 struct Card {
     Node n;
+    int screen3ds;             /* 3DS: screen it was last drawn on (for cards in the discard pile) */
     CardParams params;
     struct {
         PCard *card;
@@ -1170,7 +1171,7 @@ typedef struct Globals {
 extern Globals G;
 /* version shown on the main menu; G.VERSION stays the game's version so saves
  * keep matching the desktop build */
-#define PORT_VERSION "3DS-b.0.1.2"
+#define PORT_VERSION "3DS-b.0.1.3"
 
 PtrVec *instance_list(const char *name);  /* G.I[name] */
 CardArea *cardarea_by_name(const char *name);

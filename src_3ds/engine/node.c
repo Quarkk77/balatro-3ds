@@ -106,6 +106,8 @@ void Node_draw(Node *n) {
 }
 
 bool Node_collides_with_point(Node *n, Vec2 point) {
+    /* 3DS: elements drawn higher on the bottom screen take taps where they are drawn */
+    point.y += ui3ds_bottom_shift(n);
     if (!n->container) return false;
     Transform *T = n->CT ? n->CT : n->T;
     double b = n->states.hover.is ? G.COLLISION_BUFFER : 0;

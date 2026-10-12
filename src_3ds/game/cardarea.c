@@ -331,7 +331,8 @@ static void CardArea_draw(Node *n) {
     }
     if (a == G.deck) {
         Node *peek = child_get(n, "peek_deck");
-        if (G.CONTROLLER.HID.controller && G.STATE == STATE_SELECTING_HAND && !peek) {
+        /* 3DS: the ZL "peek deck" hint is shown whether or not buttons are in use */
+        if (G.STATE == STATE_SELECTING_HAND && !peek) {
             UIBox *b = uibox_new(
                 UIROOT(CFG(.align = "cm", .padding = 0.1, .r = 0.1, .colour = G.C.CLEAR),
                     UIR(CFG(.align = "cm", .r = 0.1, .colour = adjust_alpha(G.C.L_BLACK, 0.5), .func = G_FUNCS_set_button_pip,
@@ -341,7 +342,7 @@ static void CardArea_draw(Node *n) {
                 UIBCFG(.align = "cl", .has_offset = true, .offset = { -0.5, 0.1 }, .major = n, .parent = n));
             b->n.states.collide.can = false;
             child_set(n, "peek_deck", &b->n);
-        } else if ((!G.CONTROLLER.HID.controller || G.STATE != STATE_SELECTING_HAND) && peek) {
+        } else if (G.STATE != STATE_SELECTING_HAND && peek) {
             child_set(n, "peek_deck", NULL);
             node_remove(peek);
         }
