@@ -461,6 +461,24 @@ static void boss_warning(void) {
     }
 }
 
+/* 3DS: the bottom screen's 320 wide window into the 400 wide frame. In a
+ * run it shows the right part (jokers, hand, deck and blind select fit
+ * there; the HUD column on the left is top screen only); otherwise, and
+ * under overlay menus, which are centred, it is centred. It pans there. */
+double bottom_view_target(void) {
+    if (G.STAGE == STAGE_RUN && (!G.OVERLAY_MENU || G.OVERLAY_MENU->screen_mask == GFX_SCREEN_TOP)) return 80;
+    return 40;
+}
+static void update_bottom_view(double dt) {
+    static double x = -1;   /* unrounded, gfx keeps whole pixels */
+    double t = bottom_view_target();
+    /* under a screen wipe (which covers the switch to/from a run) it jumps
+     * straight there; draw_node keeps the wipe's card centred on it */
+    if (x < 0 || fabs(t - x) < 0.5 || G.screenwipe) x = t;
+    else x += (t - x) * MIN(1, 12 * dt);
+    gfx_set_bottom_view((float)x);
+}
+
 void game_update(double dt) {
     G.FRAMES.MOVE++;
     if (!G.SETTINGS.tutorial_complete) G_FUNCS_tutorial_controller();
@@ -472,6 +490,7 @@ void game_update(double dt) {
     G.SETTINGS.DEMO.total_uptime += dt;
     G.TIMERS.BACKGROUND += dt * G.ARGS_spin.amount;
     G.real_dt = dt;
+    update_bottom_view(dt);
 
     set_alerts();
 
@@ -596,7 +615,7 @@ static int effective_screen(Node *n, int depth) {
 /* 3DS: the tutorial Jimbo (with his speech bubble and button) is shown on one
  * screen: the bottom, unless the step highlights something only the top
  * screen shows */
-static int tutorial_jimbo_screen(void) {
+int tutorial_jimbo_screen(void) {
     UIBox *ot = G.OVERLAY_TUTORIAL;
     for (int i = 0; ot && i < ot->highlights.count; i++) {
         Node *h = ot->highlights.items[i];
@@ -625,6 +644,7 @@ static int screen_for(Node *n) {
     if (G.SPLASH_LOGO && n == &G.SPLASH_LOGO->n) return GFX_SCREEN_TOP;
     if (G.title_top && n == &G.title_top->n) return GFX_SCREEN_TOP;
     if (G.hand && n == &G.hand->n) return GFX_SCREEN_BOTTOM;   /* the hand area draws its own cards */
+    if (G.deck_preview && n == &G.deck_preview->n) return GFX_SCREEN_BOTTOM;
     if (G.play && n == &G.play->n) return GFX_SCREEN_TOP;
     if (IS(n, NT_CARD)) {
         Card *c = (Card *)n;
@@ -633,6 +653,7 @@ static int screen_for(Node *n) {
         if (G.hand && c->area == G.hand) return c->screen3ds = GFX_SCREEN_BOTTOM;   /* cards in hand */
         if (G.play && c->area == G.play) return c->screen3ds = GFX_SCREEN_TOP;      /* played cards */
         if (G.discard && c->area == G.discard && c->screen3ds) return c->screen3ds; /* where it came from */
+        if (c->area && c->area->config.view_deck) return effective_screen(&c->area->n, 0);  /* the deck view's screen */
     }
     if (G.STAGE == STAGE_MAIN_MENU && G.STATE != STATE_SPLASH) return GFX_SCREEN_BOTTOM;
     return GFX_SCREEN_BOTH;
@@ -640,6 +661,44 @@ static int screen_for(Node *n) {
 
 static void draw_node(Node *n) {
     if (!n || n->REMOVED) return;
+    /* 3DS: the screen wipe (and its card) is centred on the room (x 200); on
+     * the bottom screen it is moved to the middle of the bottom window */
+    if (G.screenwipe && n == &G.screenwipe->n) {
+        int prev = gfx_get_screen_mask();
+        for (int scr = GFX_SCREEN_TOP; scr <= GFX_SCREEN_BOTTOM; scr <<= 1) {
+            gfx_set_screen_mask(scr);
+            gfx_push();
+            if (scr == GFX_SCREEN_BOTTOM) gfx_translate(gfx_bottom_view() + 160 - gfx_width() / 2.0, 0);
+            Node_translate_container(n);
+            node_draw(n);
+            gfx_pop();
+        }
+        gfx_set_screen_mask(prev);
+        return;
+    }
+    /* 3DS: the deck peek (holding the deck) is on the bottom screen only (see
+     * screen_for), drawn 1.5x and centred, its bottom edge staying where it
+     * is (over the hand) */
+    if (G.deck_preview && n == &G.deck_preview->n) {
+        int prev = gfx_get_screen_mask(), mask = screen_for(n);
+        const double k = 1.5, ts = G.TILESCALE * G.TILESIZE;
+        Node *c = n->container && n->container != n ? n->container : NULL;   /* drawn relative to it */
+        double ax = ((c ? c->T->x : 0) + n->VT.x + n->VT.w / 2) * ts, ay = ((c ? c->T->y : 0) + n->VT.y + n->VT.h) * ts;
+        for (int scr = GFX_SCREEN_TOP; scr <= GFX_SCREEN_BOTTOM; scr <<= 1) {
+            if (!(mask & scr)) continue;
+            gfx_set_screen_mask(scr);
+            double cx = scr == GFX_SCREEN_BOTTOM ? gfx_bottom_view() + 160 : gfx_width() / 2.0;
+            gfx_push();
+            gfx_translate(cx, ay);
+            gfx_scale(k, k);
+            gfx_translate(-ax, -ay);
+            Node_translate_container(n);
+            node_draw(n);
+            gfx_pop();
+        }
+        gfx_set_screen_mask(prev);
+        return;
+    }
     int prev = gfx_get_screen_mask();
     gfx_set_screen_mask(screen_for(n));
     gfx_push();
@@ -656,8 +715,10 @@ static void draw_node(Node *n) {
             double ox = (cx + owner->VT.x + owner->VT.w / 2) * ts, oy = (cy + owner->VT.y + owner->VT.h / 2) * ts;
             double ax = CLAMP(ox, bx0, bx1), ay = CLAMP(oy, by0, by1);
             double nx0 = ax + (bx0 - ax) * k, nx1 = ax + (bx1 - ax) * k, ny0 = ay + (by0 - ay) * k, ny1 = ay + (by1 - ay) * k;
-            double W = gfx_width(), H = gfx_height(), dx = 0, dy = 0;
-            if (nx0 < 2) dx = 2 - nx0; else if (nx1 > W - 2) dx = W - 2 - nx1;
+            /* kept inside every screen it is drawn on (the bottom one shows a 320 wide window) */
+            double x0 = 0, x1 = gfx_width(), H = gfx_height(), dx = 0, dy = 0;
+            if (gfx_get_screen_mask() & GFX_SCREEN_BOTTOM) { x0 = gfx_bottom_view(); x1 = MIN(x1, x0 + 320); }
+            if (nx0 < x0 + 2) dx = x0 + 2 - nx0; else if (nx1 > x1 - 2) dx = x1 - 2 - nx1;
             if (ny0 < 2) dy = 2 - ny0; else if (ny1 > H - 2) dy = H - 2 - ny1;
             gfx_translate(ax + dx, ay + dy);
             gfx_scale(k, k);

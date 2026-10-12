@@ -6,11 +6,13 @@
 #define EVFN(name) static bool name(Event *e_, void *p_)
 #define LOC(k) ((char *)localize_key(k))
 
-static UIElement *hud(const char *id) {
+UIElement *hud_find(const char *id) {
     UIElement *e = G.HUD ? UIBox_get_UIE_by_ID(G.HUD, id, NULL) : NULL;
+    if (!e && G.HUD_score) e = UIBox_get_UIE_by_ID(G.HUD_score, id, NULL);
     if (!e && G.HUD_buttons) e = UIBox_get_UIE_by_ID(G.HUD_buttons, id, NULL);
     return e;
 }
+#define hud hud_find
 
 /* ------------------------------------------------------------------ */
 /* set_screen_positions                                                */
@@ -564,7 +566,7 @@ EVFN(ev_profile_button) {
     (void)e_; (void)p_;
     G.PROFILE_BUTTON = uibox_new(create_UIBox_profile_button(),
                                  UIBCFG(.align = "bli", .has_offset = true, .offset = { -10, 0 }, .major = G.ROOM_ATTACH, .bond = BOND_WEAK));
-    G.PROFILE_BUTTON->n.alignment.offset.x = 0;
+    G.PROFILE_BUTTON->n.alignment.offset.x = 40 / (G.TILESCALE * G.TILESIZE);   /* 3DS: inside the bottom window (x 40..360) */
     Moveable_align_to_major(&G.PROFILE_BUTTON->n);
     return true;
 }
@@ -579,7 +581,7 @@ void set_main_menu_UI(void) {
     UIDef *lang = create_UIBox_language_button();
     if (lang) {
         UIBox *lb = uibox_new(lang, UIBCFG(.align = "bri", .has_offset = true, .offset = { 10, 0 }, .major = G.ROOM_ATTACH, .bond = BOND_WEAK));
-        lb->n.alignment.offset.x = 0;
+        lb->n.alignment.offset.x = -40 / (G.TILESCALE * G.TILESIZE);   /* 3DS: inside the bottom window */
         Moveable_align_to_major(&lb->n);
     }
     UIElement *play = UIBox_get_UIE_by_ID(G.MAIN_MENU_UI, "main_menu_play", NULL);

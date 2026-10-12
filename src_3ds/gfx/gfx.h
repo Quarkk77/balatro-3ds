@@ -81,6 +81,9 @@ void gfx_flush(void);
 enum { GFX_SCREEN_TOP = 1, GFX_SCREEN_BOTTOM = 2, GFX_SCREEN_BOTH = 3 };
 void gfx_set_screen_mask(int mask);
 int gfx_get_screen_mask(void);
+/* 3DS: the bottom screen shows game x .. x + 320 of the 400 wide frame, 1:1 */
+void gfx_set_bottom_view(float x);
+float gfx_bottom_view(void);
 
 /* ---------------- window ---------------- */
 bool gfx_open_window(int w, int h, const char *title);

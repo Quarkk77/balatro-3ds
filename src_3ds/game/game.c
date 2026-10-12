@@ -564,6 +564,7 @@ void game_delete_run(void) {
         remove_box(&G.collection_alert);
         remove_box(&G.HUD);
         remove_box(&G.HUD_buttons);
+        remove_box(&G.HUD_score);
         G.HUD_stats = NULL;   /* removed with G.HUD */
         remove_box(&G.HUD_blind);
         for (int i = 0; i < G.HUD_tags.count; i++) node_remove(G.HUD_tags.items[i]);
@@ -1455,10 +1456,14 @@ void game_start_run(StartRunArgs args) {
     CardArea_align_cards(G.deck);
     CardArea_hard_set_cards(G.deck);
 
+    /* 3DS: under the hand, left of the deck (the bottom screen shows x 80..400 in a run) */
+    G.HUD_score = uibox_new(create_UIBox_HUD_score(),
+                            UIBCFG(.major = &G.hand->n, .align = "bmi", .has_offset = true, .offset = { 1.2, 5.3 }, .bond = BOND_STRONG));
+    G.HUD_score->screen_mask = GFX_SCREEN_BOTTOM;
     G.HUD = uibox_new(create_UIBox_HUD(), UIBCFG(.align = "cli", .has_offset = true, .offset = { -0.7, 0 }, .major = G.ROOM_ATTACH));
+    G.HUD->screen_mask = GFX_SCREEN_TOP;   /* 3DS: the column reaches into the bottom window's left edge */
     G.HUD_buttons = uibox_new(create_UIBox_HUD_buttons(),
-                              UIBCFG(.major = &UIBox_get_UIE_by_ID(G.HUD, "row_round", NULL)->n, .align = "cm", .has_offset = true,
-                                     .offset = { 0, 0 }, .bond = BOND_STRONG));
+                              UIBCFG(.major = &G.HUD_score->n, .align = "cl", .has_offset = true, .offset = { -0.1, 0 }, .bond = BOND_STRONG));
     G.HUD_buttons->screen_mask = GFX_SCREEN_BOTTOM;
     G.HUD_blind = uibox_new(create_UIBox_HUD_blind(),
                             UIBCFG(.major = &UIBox_get_UIE_by_ID(G.HUD, "row_blind", NULL)->n, .align = "cm", .has_offset = true,
@@ -1466,14 +1471,14 @@ void game_start_run(StartRunArgs args) {
     G.HUD_blind->screen_mask = GFX_SCREEN_TOP;   /* 3DS: blind info on the top screen only */
     vec_clear(&G.HUD_tags);
 
-    G.hand_text_area.chips = UIBox_get_UIE_by_ID(G.HUD, "hand_chips", NULL);
-    G.hand_text_area.mult = UIBox_get_UIE_by_ID(G.HUD, "hand_mult", NULL);
+    G.hand_text_area.chips = hud_find("hand_chips");
+    G.hand_text_area.mult = hud_find("hand_mult");
     G.hand_text_area.ante = UIBox_get_UIE_by_ID(G.HUD, "ante_UI_count", NULL);
     G.hand_text_area.round = UIBox_get_UIE_by_ID(G.HUD, "round_UI_count", NULL);
-    G.hand_text_area.chip_total = UIBox_get_UIE_by_ID(G.HUD, "hand_chip_total", NULL);
-    G.hand_text_area.handname = UIBox_get_UIE_by_ID(G.HUD, "hand_name", NULL);
-    G.hand_text_area.hand_level = UIBox_get_UIE_by_ID(G.HUD, "hand_level", NULL);
-    G.hand_text_area.game_chips = UIBox_get_UIE_by_ID(G.HUD, "chip_UI_count", NULL);
+    G.hand_text_area.chip_total = hud_find("hand_chip_total");
+    G.hand_text_area.handname = hud_find("hand_name");
+    G.hand_text_area.hand_level = hud_find("hand_level");
+    G.hand_text_area.game_chips = hud_find("chip_UI_count");
     G.hand_text_area.blind_chips = UIBox_get_UIE_by_ID(G.HUD_blind, "HUD_blind_count", NULL);
     G.hand_text_area.blind_spacer = UIBox_get_UIE_by_ID(G.HUD, "blind_spacer", NULL);
 

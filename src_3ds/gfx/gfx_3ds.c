@@ -3,8 +3,9 @@
  *
  * Differences from the desktop raylib layer:
  *  - The game "window" is 400x240. Everything is drawn into an offscreen
- *    400x240 target which is shown 1:1 on the top screen and stretched to
- *    fill the bottom screen, where touches act as the mouse.
+ *    400x240 target which is shown 1:1 on the top screen; the bottom screen
+ *    shows a 320 wide window of it, also 1:1 (gfx_set_bottom_view), and
+ *    touches there act as the mouse.
  *  - The PICA200 has no programmable fragment stage, so LOVE's GLSL shaders
  *    are not compiled. Each shader name maps to an approximation built from
  *    the fixed function texture combiners (see shader_apply).
@@ -30,9 +31,8 @@
 #define WIN_H 240
 #define BOTTOM_W 320
 #define BOTTOM_H 240
-/* the 400x240 picture stretched to fill the 320x240 bottom screen (0.8x wide) */
-#define BOT_VIEW_H 240
-#define BOT_VIEW_Y ((BOTTOM_H - BOT_VIEW_H) / 2)
+/* left edge (game pixels) of the bottom screen's 320 wide window */
+static float bot_view_x = (WIN_W - BOTTOM_W) / 2;
 
 #define DISPLAY_TRANSFER_FLAGS \
     (GX_TRANSFER_FLIP_VERT(0) | GX_TRANSFER_OUT_TILED(0) | GX_TRANSFER_RAW_COPY(0) | \
@@ -347,6 +347,36 @@ static inline float fsin(float x) {
 }
 static inline float fcos(float x) { return fsin(x + 1.5707963f); }
 
+/* The effects are computed into a plain SPLASH_W x SPLASH_H buffer, then
+ * softened with a light 3x3 blur ([1 2 1] each way) while being copied into
+ * the tiled texture, so the hard colour bands are not jagged when scaled 5x */
+static void blur_to_tex(const u32 *src, C3D_Tex *tex) {
+    static u32 tmp[SPLASH_W * SPLASH_H][4];   /* horizontal pass, per channel */
+    for (int y = 0; y < SPLASH_H; y++) {
+        const u32 *r = src + y * SPLASH_W;
+        for (int x = 0; x < SPLASH_W; x++) {
+            u32 a = r[x > 0 ? x - 1 : x], b = r[x], c = r[x < SPLASH_W - 1 ? x + 1 : x];
+            for (int k = 0; k < 4; k++) {
+                int sh = 24 - 8 * k;
+                tmp[y * SPLASH_W + x][k] = ((a >> sh) & 255) + 2 * ((b >> sh) & 255) + ((c >> sh) & 255);
+            }
+        }
+    }
+    u32 *dst = (u32 *)tex->data;
+    for (int y = 0; y < SPLASH_H; y++) {
+        int ya = y > 0 ? y - 1 : y, yc = y < SPLASH_H - 1 ? y + 1 : y;
+        for (int x = 0; x < SPLASH_W; x++) {
+            u32 p = 0;
+            for (int k = 0; k < 4; k++) {
+                u32 v = (tmp[ya * SPLASH_W + x][k] + 2 * tmp[y * SPLASH_W + x][k] + tmp[yc * SPLASH_W + x][k] + 8) >> 4;
+                p |= v << (24 - 8 * k);
+            }
+            dst[((u32)(y >> 3) * (SPLASH_TEX >> 3) + (u32)(x >> 3)) * 64 + morton8((u32)x & 7, (u32)y & 7)] = p;
+        }
+    }
+    C3D_TexFlush(tex);
+}
+
 static C3D_Tex *splash_render(float time, float vort_speed, float vort_offset, float mid_flash, const float *colour_1, const float *colour_2) {
     if (!splash_tex_ok) {
         if (!C3D_TexInit(&splash_tex, SPLASH_TEX, SPLASH_TEX, GPU_RGBA8)) return &white_tex;
@@ -368,7 +398,7 @@ static C3D_Tex *splash_render(float time, float vort_speed, float vort_offset, f
     float speed1 = time * 6 * vort_speed + vort_offset + 1033;
     float tsm = time * 1.2f - 4;
     if (tsm > 10) tsm = 10;
-    u32 *dst = (u32 *)splash_tex.data;
+    static u32 dst[SPLASH_W * SPLASH_H];   /* unblurred, see blur_to_tex */
     for (int gy = phase; gy < SPLASH_H; gy += 2) {
         for (int gx = 0; gx < SPLASH_W; gx++) {
             float px = (gx + 0.5f) * SW / SPLASH_W, py = (gy + 0.5f) * SH / SPLASH_H;
@@ -398,11 +428,10 @@ static C3D_Tex *splash_render(float time, float vort_speed, float vort_offset, f
             for (int k = 0; k < 3; k++) out[k] = colour_1[k] * c1p + colour_2[k] * c2p + cb * black[k];
             out[3] = colour_1[3] * c1p + colour_2[3] * c2p + cb * colour_1[3];
             for (int k = 0; k < 4; k++) out[k] = out[k] * (1 - mf) + mf;
-            u32 off = ((u32)(gy >> 3) * (SPLASH_TEX >> 3) + (u32)(gx >> 3)) * 64 + morton8((u32)gx & 7, (u32)gy & 7);
-            dst[off] = ((u32)to_u8(out[0]) << 24) | ((u32)to_u8(out[1]) << 16) | ((u32)to_u8(out[2]) << 8) | to_u8(out[3]);
+            dst[gy * SPLASH_W + gx] = ((u32)to_u8(out[0]) << 24) | ((u32)to_u8(out[1]) << 16) | ((u32)to_u8(out[2]) << 8) | to_u8(out[3]);
         }
     }
-    C3D_TexFlush(&splash_tex);
+    blur_to_tex(dst, &splash_tex);
     return &splash_tex;
 }
 
@@ -432,7 +461,7 @@ static C3D_Tex *background_render(float time, float spin_time, float spin_amount
     float speed = time * 2;
     float cm = 0.25f * contrast + 0.5f * spin_amount + 1.2f;
     float base = 0.3f / contrast;
-    u32 *dst = (u32 *)bg_tex.data;
+    static u32 dst[SPLASH_W * SPLASH_H];   /* unblurred, see blur_to_tex */
     for (int gy = phase; gy < SPLASH_H; gy += 4) {
         for (int gx = 0; gx < SPLASH_W; gx++) {
             float px = (gx + 0.5f) * SW / SPLASH_W, py = (gy + 0.5f) * SH / SPLASH_H;
@@ -457,11 +486,10 @@ static C3D_Tex *background_render(float time, float spin_time, float spin_amount
             float out[4];
             for (int k = 0; k < 3; k++) out[k] = base * colour_1[k] + (1 - base) * (colour_1[k] * c1p + colour_2[k] * c2p + c3p * colour_3[k]);
             out[3] = base * colour_1[3] + (1 - base) * (colour_1[3] * c1p + colour_2[3] * c2p + c3p * colour_1[3]);
-            u32 off = ((u32)(gy >> 3) * (SPLASH_TEX >> 3) + (u32)(gx >> 3)) * 64 + morton8((u32)gx & 7, (u32)gy & 7);
-            dst[off] = ((u32)to_u8(out[0]) << 24) | ((u32)to_u8(out[1]) << 16) | ((u32)to_u8(out[2]) << 8) | to_u8(out[3]);
+            dst[gy * SPLASH_W + gx] = ((u32)to_u8(out[0]) << 24) | ((u32)to_u8(out[1]) << 16) | ((u32)to_u8(out[2]) << 8) | to_u8(out[3]);
         }
     }
-    C3D_TexFlush(&bg_tex);
+    blur_to_tex(dst, &bg_tex);
     return &bg_tex;
 }
 
@@ -1228,15 +1256,23 @@ static void replay(int screen, GfxCanvas *dst) {
     }
 }
 
-static void present_quad(GfxCanvas *src, float x0, float y0, float x1, float y1) {
+/* draws columns sx .. sx + w of the 400x240 canvas 1:1 at the target's origin */
+static void present_quad(GfxCanvas *src, float sx, float w) {
     set_state(&src->tex, MODE_MODULATE, 0, true);
     Vertex *v = alloc_verts(6);
     if (!v) return;
-    float u1 = (float)WIN_W / src->tex.width, v1 = 1 - (float)WIN_H / src->tex.height;
+    float u0 = sx / src->tex.width, u1 = (sx + w) / src->tex.width, v1 = 1 - (float)WIN_H / src->tex.height;
     u32 c = 0xFFFFFFFF;
-    put_vert(&v[0], x0, y0, 0, 1, c); put_vert(&v[1], x0, y1, 0, v1, c); put_vert(&v[2], x1, y1, u1, v1, c);
-    put_vert(&v[3], x0, y0, 0, 1, c); put_vert(&v[4], x1, y1, u1, v1, c); put_vert(&v[5], x1, y0, u1, 1, c);
+    put_vert(&v[0], 0, 0, u0, 1, c); put_vert(&v[1], 0, WIN_H, u0, v1, c); put_vert(&v[2], w, WIN_H, u1, v1, c);
+    put_vert(&v[3], 0, 0, u0, 1, c); put_vert(&v[4], w, WIN_H, u1, v1, c); put_vert(&v[5], w, 0, u1, 1, c);
 }
+
+void gfx_set_bottom_view(float x) {
+    if (x < 0) x = 0;
+    if (x > WIN_W - BOTTOM_W) x = WIN_W - BOTTOM_W;
+    bot_view_x = roundf(x);   /* whole pixels keep the 1:1 copy sharp */
+}
+float gfx_bottom_view(void) { return bot_view_x; }
 
 void gfx_end_frame(void) {
     cur_shader = NULL;
@@ -1244,12 +1280,11 @@ void gfx_end_frame(void) {
     recording = false;
     replay(GFX_SCREEN_TOP, screen_canvas);
     replay(GFX_SCREEN_BOTTOM, bottom_canvas);
-    /* top screen 1:1, bottom screen stretched to 320x240 */
-    C3D_RenderTargetClear(bot_target, C3D_CLEAR_ALL, 0x000000FF, 0);
+    /* both screens 1:1: the top shows the whole frame, the bottom its window */
     bind_target(top_target, WIN_W, WIN_H, true);
-    present_quad(screen_canvas, 0, 0, WIN_W, WIN_H);
+    present_quad(screen_canvas, 0, WIN_W);
     bind_target(bot_target, BOTTOM_W, BOTTOM_H, true);
-    present_quad(bottom_canvas, 0, BOT_VIEW_Y, BOTTOM_W, BOT_VIEW_Y + BOT_VIEW_H);
+    present_quad(bottom_canvas, bot_view_x, BOTTOM_W);
     gfx_flush();
     flush_font_pages();
     GSPGPU_FlushDataCache(vbuf, (u32)(sizeof(Vertex) * (size_t)vcount));
@@ -1277,29 +1312,30 @@ void gfx_screenshot(const char *path) {
     snprintf(screenshot_path, sizeof screenshot_path, "%s", path);
     screenshot_pending = true;
 }
-static void write_canvas_png(GfxCanvas *cv, const char *path);
+static void write_canvas_png(GfxCanvas *cv, int x0, int w, const char *path);
 static void write_screenshot(void) {
-    write_canvas_png(screen_canvas, screenshot_path);
+    write_canvas_png(screen_canvas, 0, WIN_W, screenshot_path);
     char bpath[300];
     const char *dot = strrchr(screenshot_path, '.');
     snprintf(bpath, sizeof bpath, "%.*s_bottom%s", dot ? (int)(dot - screenshot_path) : (int)strlen(screenshot_path), screenshot_path, dot ? dot : "");
-    write_canvas_png(bottom_canvas, bpath);
+    write_canvas_png(bottom_canvas, (int)bot_view_x, BOTTOM_W, bpath);   /* what the bottom screen shows */
 }
-static void write_canvas_png(GfxCanvas *cv, const char *path) {
+static void write_canvas_png(GfxCanvas *cv, int x0, int w, const char *path) {
     C3D_Tex *t = &cv->tex;
     GSPGPU_InvalidateDataCache(t->data, t->size);
     const u32 *src = (const u32 *)t->data;
-    u8 *out = xmalloc((size_t)WIN_W * WIN_H * 3);
+    u8 *out = xmalloc((size_t)w * WIN_H * 3);
     for (int y = 0; y < WIN_H; y++) {
         int ty = y;
-        for (int x = 0; x < WIN_W; x++) {
-            u32 off = ((u32)(ty >> 3) * (u32)(t->width >> 3) + (u32)(x >> 3)) * 64 + morton8((u32)x & 7, (u32)ty & 7);
+        for (int i = 0; i < w; i++) {
+            u32 x = (u32)(x0 + i);
+            u32 off = ((u32)(ty >> 3) * (u32)(t->width >> 3) + (x >> 3)) * 64 + morton8(x & 7, (u32)ty & 7);
             u32 p = src[off];
-            u8 *o = out + ((size_t)y * WIN_W + x) * 3;
+            u8 *o = out + ((size_t)y * w + i) * 3;
             o[0] = (u8)(p >> 24); o[1] = (u8)(p >> 16); o[2] = (u8)(p >> 8);
         }
     }
-    stbi_write_png(path, WIN_W, WIN_H, 3, out, WIN_W * 3);
+    stbi_write_png(path, w, WIN_H, 3, out, w * 3);
     free(out);
 }
 
@@ -1356,10 +1392,7 @@ int gfx_poll_input(InputEvent *out, int max) {
     if (held & KEY_TOUCH) {
         touchPosition tp;
         hidTouchRead(&tp);
-        double gx = tp.px * (double)WIN_W / BOTTOM_W;
-        double gy = (tp.py - BOT_VIEW_Y) * (double)WIN_H / BOT_VIEW_H;
-        if (gy < 0) gy = 0;
-        if (gy > WIN_H - 1) gy = WIN_H - 1;
+        double gx = tp.px + bot_view_x, gy = tp.py;   /* 1:1 with the bottom window */
         if (gx != mouse_x || gy != mouse_y) {
             mouse_x = gx; mouse_y = gy;
             InputEvent e = { .type = INPUT_MOUSE_MOVED, .x = gx, .y = gy, .touch = true };

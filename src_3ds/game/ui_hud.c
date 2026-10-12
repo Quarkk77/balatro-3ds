@@ -65,6 +65,7 @@ UIDef *UIDEF_shop(void) {
                                                                  .rotate = true, .float_ = true, .bump = true, .scale = 0.5, .spacing = 1,
                                                                  .pop_in = 1.5, .has_pop_in = true, .maxw = 4.3)->n))))),
         UIBCFG(.align = "cm", .has_offset = true, .offset = { 0, -15 }, .major = &UIBox_get_UIE_by_ID(G.HUD, "row_blind", NULL)->n, .bond = BOND_WEAK));
+    G.SHOP_SIGN->screen_mask = GFX_SCREEN_TOP;   /* 3DS: in the HUD column, which reaches into the bottom window */
     add_event(EVENT(.trigger = TRIG_IMMEDIATE, .func = ev_shop_sign_drop));
 
     UIDef *inner = uinodes();
@@ -373,13 +374,59 @@ void add_tag(Tag *tag) {
     tag->HUD_tag = box;
 }
 
-UIDef *create_UIBox_HUD(void) {
+/* 3DS: round score and chips x mult (with the hand name), bottom screen only.
+ * In the original they are rows of the HUD column; here they are their own
+ * box under the hand, and the column keeps their space (row_dollars_chips_space)
+ * so the top screen's layout does not move. Made before G.HUD. */
+UIDef *create_UIBox_HUD_score(void) {
     double scale = 0.4;
     Sprite *stake_sprite = get_stake_sprite(G.GAME.stake ? (int)G.GAME.stake : 1, 0.5);
+    void *fen = font_en();
+    Language *len = lang_en();
+    CurrentRound *cr = &G.GAME.current_round;
+
+    UIDef *hand = UIR(CFG(.align = "cm", .id = "hand_text_area", .colour = darken(G.C.BLACK, 0.1), .r = 0.1, .emboss = 0.05, .padding = 0.03),
+        UIC(CFG(.align = "cm"),
+            UIR(CFG(.align = "cm", .minh = 0.75),
+                UIO(CFG(.id = "hand_name", .func = G_FUNCS_hand_text_UI_set,
+                        .object = &DYNATEXT(DT_REF(REFS(&cr->current_hand.handname_text)), DT_COL1(G.C.UI.TEXT_LIGHT), .shadow = true, .float_ = true, .scale = scale * 1.4)->n)),
+                UIO(CFG(.id = "hand_chip_total", .func = G_FUNCS_hand_chip_total_UI_set,
+                        .object = &DYNATEXT(DT_REF(REFS(&cr->current_hand.chip_total_text)), DT_COL1(G.C.UI.TEXT_LIGHT), .shadow = true, .float_ = true, .scale = scale * 1.4)->n)),
+                UIT(CFG(.ref = REFS(&cr->current_hand.hand_level), .scale = scale, .colour = G.C.UI.TEXT_LIGHT, .id = "hand_level", .shadow = true))),
+            UIR(CFG(.align = "cm", .minh = 1, .padding = 0.1),
+                UIC(CFG(.align = "cr", .minw = 2, .minh = 1, .r = 0.1, .colour = G.C.UI_CHIPS, .id = "hand_chip_area", .emboss = 0.05),
+                    UIO(CFG(.func = G_FUNCS_flame_handler, .no_role = true, .id = "flame_chips", .object = moveable_new(0, 0, 0, 0), .w = 0, .h = 0)),
+                    UIO(CFG(.id = "hand_chips", .func = G_FUNCS_hand_chip_UI_set,
+                            .object = &DYNATEXT(DT_REF(REFS(&cr->current_hand.chip_text)), DT_COL1(G.C.UI.TEXT_LIGHT), .font = fen, .shadow = true, .float_ = true,
+                                                .scale = scale * 2.3)->n)),
+                    UIB(CFG(.w = 0.1, .h = 0.1))),
+                UIC(CFG(.align = "cm"), UIT(CFG(.text = "X", .lang = len, .scale = scale * 2, .colour = G.C.UI_MULT, .shadow = true))),
+                UIC(CFG(.align = "cl", .minw = 2, .minh = 1, .r = 0.1, .colour = G.C.UI_MULT, .id = "hand_mult_area", .emboss = 0.05),
+                    UIO(CFG(.func = G_FUNCS_flame_handler, .no_role = true, .id = "flame_mult", .object = moveable_new(0, 0, 0, 0), .w = 0, .h = 0)),
+                    UIB(CFG(.w = 0.1, .h = 0.1)),
+                    UIO(CFG(.id = "hand_mult", .func = G_FUNCS_hand_mult_UI_set,
+                            .object = &DYNATEXT(DT_REF(REFS(&cr->current_hand.mult_text)), DT_COL1(G.C.UI.TEXT_LIGHT), .font = fen, .shadow = true, .float_ = true,
+                                                .scale = scale * 2.3)->n))))));
+
+    UIDef *dollars_chips = UIR(CFG(.align = "cm", .r = 0.1, .padding = 0, .colour = G.C.DYN_UI.BOSS_MAIN, .emboss = 0.05, .id = "row_dollars_chips"),
+        UIC(CFG(.align = "cm", .padding = 0.1),
+            UIC(CFG(.align = "cm", .minw = 1.3),
+                UIR(CFG(.align = "cm", .padding = 0, .maxw = 1.3), UIT(CFG(.text = LOC("k_round"), .scale = 0.42, .colour = G.C.UI.TEXT_LIGHT, .shadow = true))),
+                UIR(CFG(.align = "cm", .padding = 0, .maxw = 1.3), UIT(CFG(.text = LOC("k_lower_score"), .scale = 0.42, .colour = G.C.UI.TEXT_LIGHT, .shadow = true)))),
+            UIC(CFG(.align = "cm", .minw = 3.3, .minh = 0.7, .r = 0.1, .colour = G.C.DYN_UI.BOSS_DARK),
+                UIO(CFG(.w = 0.5, .h = 0.5, .object = &stake_sprite->n, .hover = true, .can_collide = -1)),
+                UIB(CFG(.w = 0.1, .h = 0.1)),
+                UIT(CFG(.ref = REFS(&G.GAME.chips_text), .lang = len, .scale = 0.85, .colour = G.C.WHITE, .id = "chip_UI_count", .func = G_FUNCS_chip_UI_set,
+                        .shadow = true)))));
+
+    return UIROOT(CFG(.align = "cm", .padding = 0.06, .colour = G.C.DYN_UI.BOSS_DARK, .r = 0.1), dollars_chips, hand);
+}
+
+UIDef *create_UIBox_HUD(void) {
+    double scale = 0.4;
     double spacing = 0.13;
     Col temp_col = G.C.DYN_UI.BOSS_MAIN, temp_col2 = G.C.DYN_UI.BOSS_DARK;
     void *fen = font_en();
-    Language *len = lang_en();
     CurrentRound *cr = &G.GAME.current_round;
 
     UIDef *round = uinodes();
@@ -419,43 +466,6 @@ UIDef *create_UIBox_HUD(void) {
             UIR(CFG(.align = "cm", .r = 0.1, .minw = 1.2, .colour = temp_col2, .id = "row_round_text"),
                 UIO(CFG(.object = &DYNATEXT(DT_REF(REFN(&G.GAME.round)), DT_COL1(G.C.IMPORTANT), .shadow = true, .scale = 2 * scale)->n, .id = "round_UI_count"))))));
 
-    UIDef *hand = UIR(CFG(.align = "cm", .id = "hand_text_area", .colour = darken(G.C.BLACK, 0.1), .r = 0.1, .emboss = 0.05, .padding = 0.03,
-                          .screen_mask = GFX_SCREEN_BOTTOM),
-        UIC(CFG(.align = "cm"),
-            UIR(CFG(.align = "cm", .minh = 1.1),
-                UIO(CFG(.id = "hand_name", .func = G_FUNCS_hand_text_UI_set,
-                        .object = &DYNATEXT(DT_REF(REFS(&cr->current_hand.handname_text)), DT_COL1(G.C.UI.TEXT_LIGHT), .shadow = true, .float_ = true, .scale = scale * 1.4)->n)),
-                UIO(CFG(.id = "hand_chip_total", .func = G_FUNCS_hand_chip_total_UI_set,
-                        .object = &DYNATEXT(DT_REF(REFS(&cr->current_hand.chip_total_text)), DT_COL1(G.C.UI.TEXT_LIGHT), .shadow = true, .float_ = true, .scale = scale * 1.4)->n)),
-                UIT(CFG(.ref = REFS(&cr->current_hand.hand_level), .scale = scale, .colour = G.C.UI.TEXT_LIGHT, .id = "hand_level", .shadow = true))),
-            UIR(CFG(.align = "cm", .minh = 1, .padding = 0.1),
-                UIC(CFG(.align = "cr", .minw = 2, .minh = 1, .r = 0.1, .colour = G.C.UI_CHIPS, .id = "hand_chip_area", .emboss = 0.05),
-                    UIO(CFG(.func = G_FUNCS_flame_handler, .no_role = true, .id = "flame_chips", .object = moveable_new(0, 0, 0, 0), .w = 0, .h = 0)),
-                    UIO(CFG(.id = "hand_chips", .func = G_FUNCS_hand_chip_UI_set,
-                            .object = &DYNATEXT(DT_REF(REFS(&cr->current_hand.chip_text)), DT_COL1(G.C.UI.TEXT_LIGHT), .font = fen, .shadow = true, .float_ = true,
-                                                .scale = scale * 2.3)->n)),
-                    UIB(CFG(.w = 0.1, .h = 0.1))),
-                UIC(CFG(.align = "cm"), UIT(CFG(.text = "X", .lang = len, .scale = scale * 2, .colour = G.C.UI_MULT, .shadow = true))),
-                UIC(CFG(.align = "cl", .minw = 2, .minh = 1, .r = 0.1, .colour = G.C.UI_MULT, .id = "hand_mult_area", .emboss = 0.05),
-                    UIO(CFG(.func = G_FUNCS_flame_handler, .no_role = true, .id = "flame_mult", .object = moveable_new(0, 0, 0, 0), .w = 0, .h = 0)),
-                    UIB(CFG(.w = 0.1, .h = 0.1)),
-                    UIO(CFG(.id = "hand_mult", .func = G_FUNCS_hand_mult_UI_set,
-                            .object = &DYNATEXT(DT_REF(REFS(&cr->current_hand.mult_text)), DT_COL1(G.C.UI.TEXT_LIGHT), .font = fen, .shadow = true, .float_ = true,
-                                                .scale = scale * 2.3)->n))))));
-
-    /* 3DS: round score and chips x mult are bottom screen only */
-    UIDef *dollars_chips = UIR(CFG(.align = "cm", .r = 0.1, .padding = 0, .colour = G.C.DYN_UI.BOSS_MAIN, .emboss = 0.05, .id = "row_dollars_chips",
-                                   .screen_mask = GFX_SCREEN_BOTTOM),
-        UIC(CFG(.align = "cm", .padding = 0.1),
-            UIC(CFG(.align = "cm", .minw = 1.3),
-                UIR(CFG(.align = "cm", .padding = 0, .maxw = 1.3), UIT(CFG(.text = LOC("k_round"), .scale = 0.42, .colour = G.C.UI.TEXT_LIGHT, .shadow = true))),
-                UIR(CFG(.align = "cm", .padding = 0, .maxw = 1.3), UIT(CFG(.text = LOC("k_lower_score"), .scale = 0.42, .colour = G.C.UI.TEXT_LIGHT, .shadow = true)))),
-            UIC(CFG(.align = "cm", .minw = 3.3, .minh = 0.7, .r = 0.1, .colour = G.C.DYN_UI.BOSS_DARK),
-                UIO(CFG(.w = 0.5, .h = 0.5, .object = &stake_sprite->n, .hover = true, .can_collide = -1)),
-                UIB(CFG(.w = 0.1, .h = 0.1)),
-                UIT(CFG(.ref = REFS(&G.GAME.chips_text), .lang = len, .scale = 0.85, .colour = G.C.WHITE, .id = "chip_UI_count", .func = G_FUNCS_chip_UI_set,
-                        .shadow = true)))));
-
     /* 3DS: the round stats are their own box (top screen only) held in an O
      * node, so they centre in the column and ID lookups still reach them; the
      * Run Info / Options buttons are a separate box over the same row
@@ -470,25 +480,28 @@ UIDef *create_UIBox_HUD(void) {
             UIR(CFG(.align = "cm", .colour = G.C.DYN_UI.BOSS_DARK, .r = 0.1, .minh = 30, .padding = 0.08),
                 UIR(CFG(.align = "cm", .minh = 0.3)),
                 UIR(CFG(.align = "cm", .id = "row_blind", .minw = 1, .minh = 3.75)),
-                dollars_chips,
-                hand,
+                /* 3DS: the size of the rows moved to G.HUD_score (less its padding),
+                 * which also sets the column's width, as wide as the blind panel */
+                UIR(CFG(.align = "cm", .id = "row_dollars_chips_space", .minw = G.HUD_score ? G.HUD_score->n.T->w - 0.12 : 1,
+                        .minh = G.HUD_score ? G.HUD_score->n.T->h : 0)),
                 UIR(CFG(.align = "cm", .id = "row_round"),
                     UIO(CFG(.object = &stats->n))))));
 }
 
 UIDef *create_UIBox_HUD_buttons(void) {
     double scale = 0.4;
-    UIDef *buttons = UIC(CFG(.align = "cm", .r = 0.1, .colour = G.C.CLEAR, .shadow = true, .id = "button_area", .padding = 0.2),
-        /* 3DS: wider than the original 1.5 with larger text, for the bottom screen */
-        UIR(CFG(.id = "run_info_button", .align = "cm", .minh = 1.75, .minw = 3.6, .padding = 0.05, .r = 0.1, .hover = true, .colour = G.C.RED,
+    UIDef *buttons = UIC(CFG(.align = "cm", .r = 0.1, .colour = G.C.CLEAR, .shadow = true, .id = "button_area", .padding = 0.08),
+        /* 3DS: wider than the original 1.5 with larger text, for the bottom screen,
+         * stacked left of G.HUD_score */
+        UIR(CFG(.id = "run_info_button", .align = "cm", .minh = 1.3, .minw = 3, .padding = 0.05, .r = 0.1, .hover = true, .colour = G.C.RED,
                 .button = G_FUNCS_run_info, .shadow = true),
-            UIR(CFG(.align = "cm", .padding = 0, .maxw = 3.4), UIT(CFG(.text = LOC("b_run_info_1"), .scale = 1.8 * scale, .colour = G.C.UI.TEXT_LIGHT, .shadow = true))),
-            UIR(CFG(.align = "cm", .padding = 0, .maxw = 3.4),
-                UIT(CFG(.text = LOC("b_run_info_2"), .scale = 1.5 * scale, .colour = G.C.UI.TEXT_LIGHT, .shadow = true,
+            UIR(CFG(.align = "cm", .padding = 0, .maxw = 2.8), UIT(CFG(.text = LOC("b_run_info_1"), .scale = 1.4 * scale, .colour = G.C.UI.TEXT_LIGHT, .shadow = true))),
+            UIR(CFG(.align = "cm", .padding = 0, .maxw = 2.8),
+                UIT(CFG(.text = LOC("b_run_info_2"), .scale = 1.2 * scale, .colour = G.C.UI.TEXT_LIGHT, .shadow = true,
                         .focus_args = FOCUS(.button = G.F_GUIDE ? "guide" : "back", .orientation = "bm"), .func = G_FUNCS_set_button_pip)))),
-        UIR(CFG(.align = "cm", .minh = 1.75, .minw = 3.6, .padding = 0.05, .r = 0.1, .hover = true, .colour = G.C.ORANGE, .button = G_FUNCS_options, .shadow = true),
-            UIC(CFG(.align = "cm", .maxw = 3.4, .focus_args = FOCUS(.button = "start", .orientation = "bm"), .func = G_FUNCS_set_button_pip),
-                UIT(CFG(.text = LOC("b_options"), .scale = 1.6 * scale, .colour = G.C.UI.TEXT_LIGHT, .shadow = true)))));
+        UIR(CFG(.align = "cm", .minh = 1.3, .minw = 3, .padding = 0.05, .r = 0.1, .hover = true, .colour = G.C.ORANGE, .button = G_FUNCS_options, .shadow = true),
+            UIC(CFG(.align = "cm", .maxw = 2.8, .focus_args = FOCUS(.button = "start", .orientation = "bm"), .func = G_FUNCS_set_button_pip),
+                UIT(CFG(.text = LOC("b_options"), .scale = 1.4 * scale, .colour = G.C.UI.TEXT_LIGHT, .shadow = true)))));
 
     return UIROOT(CFG(.align = "cm", .colour = G.C.CLEAR), buttons);
 }

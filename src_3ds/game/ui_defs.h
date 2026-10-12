@@ -197,6 +197,7 @@ PtrVec *instance_list(const char *name);
 /* HUD / run screens */
 UIDef *create_UIBox_HUD(void);
 UIDef *create_UIBox_HUD_buttons(void);
+UIDef *create_UIBox_HUD_score(void);
 UIDef *create_UIBox_HUD_blind(void);
 UIDef *create_UIBox_blind_select(void);
 UIDef *create_UIBox_blind_tag(int blind_choice, bool run_info);

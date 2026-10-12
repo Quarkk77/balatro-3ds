@@ -1127,8 +1127,7 @@ static Node *blind_opt_uie(int k, const char *id) {
     return e ? &e->n : NULL;
 }
 static Node *hud_uie(const char *id) {
-    UIElement *e = G.HUD ? UIBox_get_UIE_by_ID(G.HUD, id, NULL) : NULL;
-    if (!e && G.HUD_buttons) e = UIBox_get_UIE_by_ID(G.HUD_buttons, id, NULL);
+    UIElement *e = hud_find(id);
     return e ? &e->n : NULL;
 }
 static Node *dollar_parent3(void) {

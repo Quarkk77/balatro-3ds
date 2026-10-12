@@ -689,6 +689,12 @@ EVFN(ev_tut_step) {
         }
         vec_free(&ot->highlights);
         ot->highlights = hl;
+        /* 3DS: placed relative to the room's centre (x 200) but shown on the
+         * bottom screen, whose run window is x 80..400: centre him there */
+        if (a->attach.major == G.ROOM_ATTACH && tutorial_jimbo_screen() == GFX_SCREEN_BOTTOM && G.STAGE == STAGE_RUN) {
+            ot->Jimbo->n.alignment.offset.x += 40 / (G.TILESCALE * G.TILESIZE);
+            if (a->hard_set) CardCharacter_hard_set_VT(ot->Jimbo);
+        }
         ot->step_complete = true;
     }
     return !G.OVERLAY_TUTORIAL || G.OVERLAY_TUTORIAL->step > a->step || G.OVERLAY_TUTORIAL->skip_steps;
@@ -708,7 +714,7 @@ int tutorial_info(TutorialArgs a) {
     }
     if (!G.OVERLAY_TUTORIAL->step) G.OVERLAY_TUTORIAL->step = 1;
     G.OVERLAY_TUTORIAL->step_complete = false;
-    UIElement *rdc = UIBox_get_UIE_by_ID(G.HUD, "row_dollars_chips", NULL);
+    UIElement *rdc = hud_find("row_dollars_chips");
     if (!a.align) a.align = "tm";
     if (!a.step) a.step = 1;
     if (!a.has_attach) a.attach = ALIGN_ARGS(.major = rdc ? &rdc->n : NULL, .type = "tm", .has_offset = true, .offset = { 0, -0.5 });

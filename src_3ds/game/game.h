@@ -1065,6 +1065,7 @@ typedef struct Globals {
 
     /* UI boxes */
     UIBox *HUD_buttons;        /* 3DS: Run Info / Options, bottom screen only */
+    UIBox *HUD_score;          /* 3DS: round score, chips x mult and hand name; bottom screen only */
     UIBox *HUD_stats;          /* 3DS: hands, discards, money, ante, round; top screen only (inside G.HUD) */
     UIBox *HUD, *HUD_blind, *buttons, *deck_preview, *shop, *blind_select, *booster_pack, *MAIN_MENU_UI, *GAME_OVER_UI;
     UIBox *collection_alert, *OVERLAY_MENU, *OVERLAY_TUTORIAL, *screenwipe, *round_eval, *boss_warning_text;
@@ -1177,7 +1178,7 @@ extern Globals G;
 /* 3DS: cards are drawn this much larger than in the original (G.CARD_W/H);
  * the main card areas keep the original widths so the layout does not move */
 #define CARD_SCALE_3DS 1.1
-#define PORT_VERSION "3DS-b.0.2.1"
+#define PORT_VERSION "3DS-b.0.3"
 
 PtrVec *instance_list(const char *name);  /* G.I[name] */
 CardArea *cardarea_by_name(const char *name);
@@ -1314,6 +1315,9 @@ DVal *loc_misc(const char *cat);    /* G.localization.misc[cat] */
 /* common_events.lua                                                   */
 /* ------------------------------------------------------------------ */
 void set_screen_positions(void);
+int tutorial_jimbo_screen(void);   /* 3DS: GFX_SCREEN_TOP or GFX_SCREEN_BOTTOM */
+double bottom_view_target(void);   /* 3DS: left edge of the bottom screen's window */
+UIElement *hud_find(const char *id);   /* 3DS: G.HUD, G.HUD_score or G.HUD_buttons */
 void ease_chips(double mod);
 void ease_dollars(double mod, bool instant);
 void ease_discard(double mod, bool instant, bool silent);

@@ -135,7 +135,7 @@ static void o3ds_lockout(void) {
             gfx_pop();
             /* bottom: the message, and the notice along the bottom edge */
             gfx_set_screen_mask(GFX_SCREEN_BOTTOM);
-            draw_wrapped(f, msg, 200, 108, 360, 0.55, white);
+            draw_wrapped(f, msg, 200, 108, 300, 0.55, white);   /* the bottom window is x 40..360 */
             double nsc = 0.45, nw = gfx_font_width(f, notice) * nsc, nh = gfx_font_height(f) * nsc;
             gfx_set_color(notice_bg);
             gfx_rectangle(GFX_FILL, 200 - nw / 2 - 4, 240 - nh - 10, nw + 8, nh + 4);

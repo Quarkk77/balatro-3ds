@@ -795,7 +795,7 @@ UIDef *UIDEF_profile_option(int p) {
     return t;
 }
 
-#define MENU_SCALE 1.3   /* 3DS: main menu buttons are scaled up to stay readable */
+#define MENU_SCALE 1.05   /* 3DS: main menu buttons are scaled up to stay readable */
 UIDef *create_UIBox_profile_button(void) {
     char **nref = profile_name_ref(G.SETTINGS.profile);
     if (!*nref || !(*nref)[0]) { str_set(nref, tfmt("P%d", G.SETTINGS.profile)); profile_name_sync(G.SETTINGS.profile); }
@@ -812,7 +812,7 @@ UIDef *create_UIBox_profile_button(void) {
 /* main menu                                                           */
 /* ------------------------------------------------------------------ */
 /* 3DS: the four main buttons are centred on the bottom screen and scaled up
- * (MENU_SCALE) to stay readable at 320x192; the language button is its own
+ * (MENU_SCALE) to stay readable, fitting the bottom screen's 320 wide window; the language button is its own
  * box in the bottom right corner (create_UIBox_language_button). */
 UIDef *create_UIBox_main_menu_buttons(void) {
     double text_scale = 0.45 * MENU_SCALE, k = MENU_SCALE;
