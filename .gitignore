@@ -3,3 +3,6 @@
 /build_3ds/
 # local archives
 *.zip
+
+# downloaded by tools/devkitpro/install_devkitpro.sh
+tools/devkitpro/*.pkg.tar.zst
