@@ -40,7 +40,7 @@ The 3DS port is the active work.
 
 ## Working with this user
 - Tokens are limited: do straightforward tests, use few emulator runs and mid-test screenshots only when needed.
-- Commit only when asked. Version scheme: tags `3DS-b.0.x[.y]` (latest: `3DS-b.0.4.1`); bump
+- Commit only when asked. Version scheme: tags `3DS-b.0.x[.y]` (latest: `3DS-b.0.4.2`); bump
   `PORT_VERSION` in `src_3ds/game/game.h` and the note in PORTING_NOTES.md to match when committing.
   Commit messages end with the Co-Authored-By line.
 - Ask before decisions that are genuinely theirs (e.g. layout tradeoffs); otherwise act.

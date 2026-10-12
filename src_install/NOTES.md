@@ -36,6 +36,6 @@ downloaded on its own; the script puts it and the assets in place.
 
 ## Before a public release
 
-- `src_3ds/meta/icon.png` is made from Balatro.exe's icon and goes into the .3dsx / .cia (SMDH, banner
-  icon); `banner.png` and `banner.wav` should be checked too. Replace them with original art.
+- `src_3ds/meta/` icon, banner and banner sound are original placeholders (no Balatro art); keep it that way.
+  (Earlier commits were rewritten to carry these placeholders too.)
 - Release zip for Universal-Updater: `balatro_c.3dsx`, `install_balatro_c.sh`, `README.md`.

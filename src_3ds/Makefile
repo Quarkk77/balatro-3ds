@@ -14,9 +14,9 @@ endif
 include $(DEVKITPRO)/devkitARM/3ds_rules
 
 TARGET      := balatro_c
-APP_TITLE   := Balatro
-APP_DESC    := Balatro (balatro_c 3DS port)
-APP_AUTHOR  := LocalThunk / balatro_c
+APP_TITLE   := balatro_c
+APP_DESC    := Unofficial Balatro fan port (needs your own copy)
+APP_AUTHOR  := balatro_c
 
 BUILD       := ../build_3ds
 OBJDIR      := $(BUILD)/obj

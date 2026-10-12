@@ -1179,7 +1179,7 @@ extern Globals G;
 /* 3DS: cards are drawn this much larger than in the original (G.CARD_W/H);
  * the main card areas keep the original widths so the layout does not move */
 #define CARD_SCALE_3DS 1.1
-#define PORT_VERSION "3DS-b.0.4.1"
+#define PORT_VERSION "3DS-b.0.4.2"
 
 PtrVec *instance_list(const char *name);  /* G.I[name] */
 CardArea *cardarea_by_name(const char *name);
