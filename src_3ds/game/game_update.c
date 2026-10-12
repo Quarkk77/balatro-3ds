@@ -563,7 +563,7 @@ void game_update(double dt) {
  *  - main menu (after the splash): buttons, menus opened from them and their
  *    cards and tooltips on the bottom screen only; the background and screen
  *    wipes on both
- *  - in a run: the blind panel (and its chip) and the round stats on top; round
+ *  - in a run: cards in hand on the bottom; the blind panel (and its chip) and the round stats on top; round
  *    score, chips x mult and the Run Info / Options buttons on the bottom (set
  *    with UIBox/UIConfig screen_mask in ui_hud.c); everything else on both */
 static int screen_for(Node *n);
@@ -603,10 +603,12 @@ static int screen_for(Node *n) {
     if (IS(n, NT_BLIND)) return GFX_SCREEN_TOP;   /* the blind chip in the HUD's blind panel */
     if (G.SPLASH_LOGO && n == &G.SPLASH_LOGO->n) return GFX_SCREEN_TOP;
     if (G.title_top && n == &G.title_top->n) return GFX_SCREEN_TOP;
+    if (G.hand && n == &G.hand->n) return GFX_SCREEN_BOTTOM;   /* the hand area draws its own cards */
     if (IS(n, NT_CARD)) {
         Card *c = (Card *)n;
         if (G.title_top && c->area == G.title_top) return GFX_SCREEN_TOP;
         if (G.splash_jimbo && c == G.splash_jimbo) return GFX_SCREEN_BOTTOM;
+        if (G.hand && c->area == G.hand) return GFX_SCREEN_BOTTOM;   /* cards in hand */
     }
     if (G.STAGE == STAGE_MAIN_MENU && G.STATE != STATE_SPLASH) return GFX_SCREEN_BOTTOM;
     return GFX_SCREEN_BOTH;

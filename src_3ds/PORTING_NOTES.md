@@ -67,6 +67,9 @@ sounds, shader files (only their names are used), fonts except the GoNoto fallba
 `meta/` holds the icon, banner, banner jingle and the makerom RSF (80MB mode on Old 3DS, 124MB on New 3DS).
 
 ### Running
+- New 3DS only for now: on an Old 3DS (`APT_CheckNew3DS`) the game is replaced by a lockout screen
+  (`o3ds_lockout` in main.c): scrolling "Nope!" tiles on top, an explanation and the notice on the
+  bottom; START or HOME exits. `FORCE_O3DS=1` in debug.txt shows it on a New 3DS.
 - Saves: `sdmc:/3ds/balatro_c/` (same .jkr format as the desktop build, so saves can be copied across).
 - Sound needs the DSP firmware dump at `sdmc:/3ds/dspfirm.cdc` (made by the DSP1 homebrew); without it the
   game runs silent.
@@ -94,7 +97,8 @@ sounds, shader files (only their names are used), fonts except the GoNoto fallba
   Also per screen: the blind panel (G.HUD_blind, the blind select prompt and the Blind chip) is top only;
   round score and chips x mult are bottom only. Run Info / Options are wider (3.6) with larger text.
   Tooltips and drag popups (G.I.POPUP) use the screen of the element they belong to.
-- The main menu shows `PORT_VERSION` ("3DS-b.0.1.1", game.h); `G.VERSION` stays the game's own version
+  Cards in hand (and the hand area, which draws them) are bottom screen only.
+- The main menu shows `PORT_VERSION` ("3DS-b.0.1.2", game.h); `G.VERSION` stays the game's own version
   because it is written into saves. Debug screenshots also write `shot_NN_bottom.png`.
 - Textures: PNGs are decoded with stb_image on first draw (lazy, to save memory) and cut into power-of-two
   tiles of at most 1024x1024; a quad that spans tiles is drawn in pieces. The two studio logos are
@@ -133,7 +137,8 @@ sounds, shader files (only their names are used), fonts except the GoNoto fallba
 
 ### Debug / test hooks
 Put `KEY=value` lines in `sdmc:/3ds/balatro_c/debug.txt` (same keys as the desktop env vars without the
-`BALATRO_` prefix): `SHOTS`, `QUIT_AFTER`, `SCRIPT`, `TEST_SEED`, `TEST_EASY`, `FPS`. While that file exists,
+`BALATRO_` prefix): `SHOTS`, `QUIT_AFTER`, `SCRIPT`, `TEST_SEED`, `TEST_EASY`, `FPS`, plus `TEST_LOADOUT=1` (5 negative
+random Tarot/Planet cards and 5 random jokers when a run first reaches blind select). While that file exists,
 stderr goes to `log.txt` next to it, and screenshots (`shot_NN.png`, read back from the 400x240 target)
 are written there too. `SCRIPT` also accepts `t:button=name` (LOVE gamepad names: a, b, x, y, dpup,
 leftshoulder, start...). FPS lines include heap and free linear memory.

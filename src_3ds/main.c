@@ -64,6 +64,96 @@ static void parse_script(const char *s) {
     }
 }
 
+/* ------------------------------------------------------------------ */
+/* Old 3DS lockout (this build is New 3DS only for now)                */
+/* ------------------------------------------------------------------ */
+static void draw_shadowed(GfxFont *f, const char *t, double x, double y, double sc, const float *col, float shadow_a) {
+    gfx_set_color4(0, 0, 0, shadow_a);
+    gfx_print(f, t, x + 1.5 * sc, y + 1.5 * sc, 0, sc, sc, 0, 0);
+    gfx_set_color(col);
+    gfx_print(f, t, x, y, 0, sc, sc, 0, 0);
+}
+
+/* centred, word-wrapped text block; returns its height */
+static double draw_wrapped(GfxFont *f, const char *text, double cx, double cy, double maxw, double sc, const float *col) {
+    char lines[16][256];
+    int n = 0;
+    char cur[256] = "";
+    const char *p = text;
+    while (*p && n < 16) {
+        const char *sp = strchr(p, ' ');
+        size_t wl = sp ? (size_t)(sp - p) : strlen(p);
+        char trial[256];
+        snprintf(trial, sizeof trial, "%s%s%.*s", cur, cur[0] ? " " : "", (int)wl, p);
+        if (cur[0] && gfx_font_width(f, trial) * sc > maxw) {
+            snprintf(lines[n++], sizeof lines[0], "%s", cur);
+            snprintf(cur, sizeof cur, "%.*s", (int)wl, p);
+        } else snprintf(cur, sizeof cur, "%s", trial);
+        p = sp ? sp + 1 : p + wl;
+    }
+    if (cur[0] && n < 16) snprintf(lines[n++], sizeof lines[0], "%s", cur);
+    double lh = gfx_font_height(f) * sc * 1.15, y = cy - lh * n / 2;
+    for (int i = 0; i < n; i++, y += lh)
+        draw_shadowed(f, lines[i], cx - gfx_font_width(f, lines[i]) * sc / 2, y, sc, col, 0.4f);
+    return lh * n;
+}
+
+static void o3ds_lockout(void) {
+    GfxFont *f = gfx_load_font(res_path("resources/fonts/m6x11plus.ttf"), 32);
+    static const float bg[4] = { 0x37 / 255.f, 0x42 / 255.f, 0x44 / 255.f, 1 };   /* G.C.BLACK */
+    static const float nope[4] = { 0xa7 / 255.f, 0x82 / 255.f, 0xd1 / 255.f, 1 };  /* Tarot purple */
+    static const float white[4] = { 1, 1, 1, 1 };
+    static const float notice_bg[4] = { 0x22 / 255.f, 0x22 / 255.f, 0x22 / 255.f, 0x22 / 255.f };
+    const char *unit = "Nope! ";
+    const char *msg = "For now, this port of Balatro only supports the New 3DS and not the Old 3DS. Check that your version is "
+                      "up to date. If you are running this on a New 3DS, please contact @veridiandeltas on X/Twitter.";
+    const char *notice = "NOTICE: Not affiliated with LocalThunk.";
+    double t0 = gfx_time();
+    InputEvent ev[64];
+    bool quit = false;
+    while (!quit && aptMainLoop()) {
+        int n = gfx_poll_input(ev, ARRLEN(ev));
+        for (int i = 0; i < n; i++)
+            if (ev[i].type == INPUT_QUIT || (ev[i].type == INPUT_GAMEPAD_PRESSED && !strcmp(ev[i].key, "start"))) quit = true;
+        double t = gfx_time() - t0;
+        gfx_begin_frame();
+        gfx_clear(bg[0], bg[1], bg[2], 1);
+        if (f) {
+            /* top: "Nope!" tiled on a tilted grid, scrolling diagonally */
+            gfx_set_screen_mask(GFX_SCREEN_TOP);
+            double sc = 0.75, uw = gfx_font_width(f, unit) * sc, rh = gfx_font_height(f) * sc * 1.25;
+            double ox = fmod(t * 30, uw), oy = fmod(t * 18, rh * 2);
+            gfx_push();
+            gfx_translate(200, 120);
+            gfx_rotate(-0.35);
+            for (int r = -8; r <= 8; r++) {
+                double y = r * rh + oy - rh;
+                double stagger = (r & 1) ? uw / 2 : 0;
+                for (double x = -330 - uw + ox + stagger; x < 330; x += uw)
+                    draw_shadowed(f, "Nope!", x, y, sc, nope, 0.35f);
+            }
+            gfx_pop();
+            /* bottom: the message, and the notice along the bottom edge */
+            gfx_set_screen_mask(GFX_SCREEN_BOTTOM);
+            draw_wrapped(f, msg, 200, 108, 360, 0.55, white);
+            double nsc = 0.45, nw = gfx_font_width(f, notice) * nsc, nh = gfx_font_height(f) * nsc;
+            gfx_set_color(notice_bg);
+            gfx_rectangle(GFX_FILL, 200 - nw / 2 - 4, 240 - nh - 10, nw + 8, nh + 4);
+            draw_shadowed(f, notice, 200 - nw / 2, 240 - nh - 8, nsc, white, 0.4f);
+            gfx_set_screen_mask(GFX_SCREEN_BOTH);
+        }
+        /* debug: SHOTS also works here */
+        static int shot_i;
+        const char *shots = dbg_get("SHOTS");
+        if (shots) {
+            const char *q = shots;
+            for (int k = 0; k < shot_i && q; k++) { q = strchr(q, ','); if (q) q++; }
+            if (q && *q && t >= atof(q)) { gfx_screenshot(tfmt("%s/shot_%02d.png", save_dir(), shot_i)); shot_i++; }
+        }
+        gfx_end_frame();
+    }
+}
+
 static void handle_event(const InputEvent *ev);
 static void run_script(double now) {
     while (script_pos < nscript && now >= script[script_pos].t) {
@@ -159,6 +249,15 @@ int main(int argc, char **argv) {
         fprintf(stderr, "could not initialise the GPU\n");
         return 1;
     }
+    /* New 3DS only for now: an Old 3DS gets an explanation instead of the game */
+    bool is_new3ds = false;
+    APT_CheckNew3DS(&is_new3ds);
+    if (!is_new3ds || dbg_get("FORCE_O3DS")) {
+        o3ds_lockout();
+        gfx_close_window();
+        romfsExit();
+        return 0;
+    }
     math_randomseed(G.SEED);
     game_start_up();
     gfx_set_mouse_visible(false);
@@ -178,6 +277,9 @@ int main(int argc, char **argv) {
     bool show_fps = dbg_get("FPS") != NULL;
     if (dbg_get("GC_EXPLAIN")) heap_explain = atoi(dbg_get("GC_EXPLAIN"));
     bool gc_stress = dbg_get("GC_STRESS") != NULL;
+    /* test hook: TEST_LOADOUT=1 gives 5 negative random Tarot/Planet cards and
+     * 5 random jokers when a run first reaches blind select */
+    bool loadout = dbg_get("TEST_LOADOUT") != NULL, loadout_done = false;
     int gc_last_size = 0;
     double gc_last_time = 0;
     while (!G.quit_requested && aptMainLoop()) {
@@ -196,6 +298,20 @@ int main(int argc, char **argv) {
         last = now;
         dt_smooth = MIN(0.8 * dt_smooth + 0.2 * dt, 0.1);
         game_update(dt_smooth);
+        if (loadout && !loadout_done && G.STAGE == STAGE_RUN && G.STATE == STATE_BLIND_SELECT && G.jokers && G.consumeables) {
+            loadout_done = true;
+            for (int i = 0; i < 5; i++) {
+                Card *c = create_card(math_random() < 0.5 ? "Tarot" : "Planet", G.consumeables, false, 0, false, false, NULL, "dbg");
+                Card_set_edition(c, edition_req_from_key("negative"), true, true);
+                Card_add_to_deck(c, false);
+                CardArea_emplace(G.consumeables, c, NULL, false);
+            }
+            for (int i = 0; i < 5; i++) {
+                Card *c = create_card("Joker", G.jokers, false, 0, false, false, NULL, "dbg");
+                Card_add_to_deck(c, false);
+                CardArea_emplace(G.jokers, c, NULL, false);
+            }
+        }
         /* test hook: BALATRO_TEST_EASY=1 makes every blind need 1 chip */
         if (easy && G.STAGE == STAGE_RUN && G.GAME.blind && G.GAME.blind->chips > 1) {
             G.GAME.blind->chips = 1;

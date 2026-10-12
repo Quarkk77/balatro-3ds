@@ -935,6 +935,30 @@ static bool ev_menu_tallies(Event *e, void *p) {
     return true;
 }
 
+/* 3DS: the unofficial-port notice in every language the game ships */
+static const char *port_notice_text(void) {
+    static const struct { const char *lang, *text; } T[] = {
+        { "en-us", "NOTICE: Not affiliated with LocalThunk." },
+        { "de", "HINWEIS: Nicht mit LocalThunk verbunden." },
+        { "es_419", "AVISO: No está afiliado con LocalThunk." },
+        { "es_ES", "AVISO: No está afiliado con LocalThunk." },
+        { "fr", "AVIS : Non affilié à LocalThunk." },
+        { "id", "PEMBERITAHUAN: Tidak berafiliasi dengan LocalThunk." },
+        { "it", "AVVISO: Non affiliato con LocalThunk." },
+        { "ja", "注意：LocalThunkとは無関係です。" },
+        { "ko", "알림: LocalThunk와 관련이 없습니다." },
+        { "nl", "LET OP: Niet gelieerd aan LocalThunk." },
+        { "pl", "UWAGA: Brak powiązań z LocalThunk." },
+        { "pt_BR", "AVISO: Não afiliado à LocalThunk." },
+        { "ru", "ВНИМАНИЕ: Не связано с LocalThunk." },
+        { "zh_CN", "注意：与LocalThunk无关。" },
+        { "zh_TW", "注意：與LocalThunk無關。" },
+    };
+    for (int i = 0; i < ARRLEN(T); i++)
+        if (G.SETTINGS.language && !strcmp(G.SETTINGS.language, T[i].lang)) return T[i].text;
+    return T[0].text;
+}
+
 void game_main_menu(const char *change_context) {
     int ctx = str_eq(change_context, "splash") ? 1 : str_eq(change_context, "game") ? 2 : 0;
     if (ctx != 1) {
@@ -1045,7 +1069,7 @@ void game_main_menu(const char *change_context) {
               UIBCFG(.align = "tri", .has_offset = true, .offset = { 0, 0 }, .major = G.ROOM_ATTACH, .bond = BOND_WEAK));
     /* 3DS: unofficial-port notice along the bottom of the top screen */
     G.notice_label = uibox_new(UIROOT(CFG(.align = "cm", .padding = 0.05, .r = 0.1, .colour = G.C.UI.TRANSPARENT_DARK),
-                     UIT(CFG(.text = "NOTICE: Not affiliated with LocalThunk.", .scale = 0.45, .colour = G.C.UI.TEXT_LIGHT, .shadow = true))),
+                     UIT(CFG(.text = (char *)port_notice_text(), .scale = 0.45, .colour = G.C.UI.TEXT_LIGHT, .shadow = true))),
               UIBCFG(.align = "bmi", .has_offset = true, .offset = { 0, -0.1 }, .major = G.ROOM_ATTACH, .bond = BOND_WEAK));
 }
 
