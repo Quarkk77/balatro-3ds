@@ -5,8 +5,8 @@
 #   make cia        -> only the .cia (needs makerom and bannertool on PATH)
 #   make clean
 #
-# Game assets are taken from the extracted original in ../src_lua and
-# packed into romfs (1x textures, sounds, fonts, localization).
+# Game assets are not packed: the game reads them from sdmc:/3ds/balatro_c/assets,
+# installed from the user's own copy of Balatro by src_install/install_balatro_c.sh.
 
 ifeq ($(strip $(DEVKITPRO)),)
 $(error "Please set DEVKITPRO in your environment. export DEVKITPRO=<path to>devkitPro")
@@ -21,7 +21,6 @@ APP_AUTHOR  := LocalThunk / balatro_c
 BUILD       := ../build_3ds
 OBJDIR      := $(BUILD)/obj
 ROMFS_DIR   := $(BUILD)/romfs
-LUA_SRC     := ../src_lua
 META        := meta
 
 CFILES      := $(wildcard *.c) $(foreach d,core engine game gfx,$(wildcard $(d)/*.c))
@@ -66,16 +65,11 @@ $(BUILD)/$(TARGET).elf: $(OFILES)
 # ---------------------------------------------------------------- assets
 # 2x textures and the GoNoto fallback fonts are left out to keep the size
 # (and memory use) down.
-$(ROMFS_DIR)/.stamp: $(MAKEFILE_LIST) $(META)/gamepad_ui_3ds.png
-	@mkdir -p $(ROMFS_DIR)/resources/textures $(ROMFS_DIR)/resources/fonts
-	cp -r $(LUA_SRC)/resources/textures/1x $(ROMFS_DIR)/resources/textures/
-	cp -r $(LUA_SRC)/resources/sounds $(LUA_SRC)/resources/shaders $(ROMFS_DIR)/resources/
-	cp $(LUA_SRC)/resources/fonts/m6x11plus.ttf $(LUA_SRC)/resources/fonts/NotoSans-Bold.ttf \
-	   $(LUA_SRC)/resources/fonts/NotoSansJP-Bold.ttf $(LUA_SRC)/resources/fonts/NotoSansKR-Bold.ttf \
-	   $(LUA_SRC)/resources/fonts/NotoSansSC-Bold.ttf $(LUA_SRC)/resources/fonts/NotoSansTC-Bold.ttf \
-	   $(ROMFS_DIR)/resources/fonts/
-	cp -r $(LUA_SRC)/localization $(ROMFS_DIR)/
-	cp $(META)/gamepad_ui_3ds.png $(ROMFS_DIR)/resources/textures/1x/gamepad_ui.png
+# No game files go into romfs: they are read from sdmc:/3ds/balatro_c/assets, put there by
+# src_install/install_balatro_c.sh from the user's own copy of Balatro.
+$(ROMFS_DIR)/.stamp: $(MAKEFILE_LIST)
+	@rm -rf $(ROMFS_DIR) && mkdir -p $(ROMFS_DIR)
+	@echo "balatro_c: Balatro's own files are installed separately, see install_balatro_c.sh" > $(ROMFS_DIR)/balatro_c.txt
 	@touch $@
 romfs: $(ROMFS_DIR)/.stamp
 

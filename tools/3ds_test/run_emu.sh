@@ -1,7 +1,8 @@
 #!/bin/bash
 # run_emu.sh - run the 3DS build in Azahar with debug hooks and tile the screenshots.
 #   tools/3ds_test/run_emu.sh '<debug.txt contents, \n separated>' <seconds> <out.png>
-# Env: NOTUT=1 starts from a save with the tutorial completed.
+# Env: NOTUT=1 starts from a save with the tutorial completed; NOASSETS=1 runs without
+# Balatro's files (otherwise they are installed with src_install/install_balatro_c.sh).
 # Wipes the test save folder in Azahar's sdmc first. debug.txt keys: see
 # src_3ds/PORTING_NOTES.md ("Debug / test hooks"). Screenshots: shot_NN.png (top)
 # and shot_NN_bottom.png in the sdmc folder; the tiled image shows top screens.
@@ -10,6 +11,11 @@ here="$(cd "$(dirname "$0")" && pwd)"
 repo="$(cd "$here/../.." && pwd)"
 SD=~/.local/share/azahar-emu/sdmc/3ds/balatro_c
 mkdir -p $SD; rm -rf $SD/shot_*.png $SD/log.txt $SD/1 $SD/2 $SD/3 $SD/*.jkr
+# the game's own files, as the release installer puts them (NOASSETS=1: leave them out)
+if [ -n "$NOASSETS" ]; then rm -rf $SD/assets
+elif [ ! -f $SD/assets/balatro_c_assets.txt ]; then
+    bash "$repo/src_install/install_balatro_c.sh" --sd "$(dirname "$(dirname "$SD")")" --no-3dsx -y >/dev/null || exit 1
+fi
 printf "%b" "$1" > $SD/debug.txt
 [ -n "$NOTUT" ] && cp "$here/settings_notut.jkr" $SD/settings.jkr
 azahar "$repo/build_3ds/balatro_c.3dsx" >/dev/null 2>&1 &

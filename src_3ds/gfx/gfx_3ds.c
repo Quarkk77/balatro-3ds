@@ -927,6 +927,12 @@ struct GfxFont {
     int gcap, gcount;
     FontPage pages[FONT_MAX_PAGES];
     int npages;
+    /* 3DS system font (gfx_load_system_font): drawn straight from its glyph
+     * sheets, as citro2d does; the fields above are unused */
+    bool sys;
+    CFNT_s *cfnt;
+    C3D_Tex *sheets;
+    float sscale;
 };
 static GfxFont *fonts[16];
 static int nfonts;
@@ -1042,8 +1048,40 @@ GfxFont *gfx_load_font(const char *path, float size) {
     return f;
 }
 
+GfxFont *gfx_load_system_font(float size) {
+    if (R_FAILED(fontEnsureMapped())) { fprintf(stderr, "gfx: no system font\n"); return NULL; }
+    CFNT_s *cfnt = fontGetSystemFont();
+    TGLP_s *gi = fontGetGlyphInfo(cfnt);
+    GfxFont *f = NEW(GfxFont);
+    f->sys = true;
+    f->cfnt = cfnt;
+    f->sheets = xcalloc((size_t)gi->nSheets, sizeof(C3D_Tex));
+    for (int i = 0; i < gi->nSheets; i++) {
+        C3D_Tex *t = &f->sheets[i];
+        t->data = fontGetGlyphSheetTex(cfnt, i);
+        t->fmt = (GPU_TEXCOLOR)gi->sheetFmt;
+        t->size = gi->sheetSize;
+        t->width = gi->sheetWidth;
+        t->height = gi->sheetHeight;
+        t->param = GPU_TEXTURE_MAG_FILTER(GPU_LINEAR) | GPU_TEXTURE_MIN_FILTER(GPU_LINEAR) |
+                   GPU_TEXTURE_WRAP_S(GPU_CLAMP_TO_BORDER) | GPU_TEXTURE_WRAP_T(GPU_CLAMP_TO_BORDER);
+        t->border = 0xFFFFFFFF;
+        t->lodParam = 0;
+    }
+    FINF_s *fi = fontGetInfo(cfnt);
+    f->size = size;
+    f->sscale = size / fi->lineFeed;
+    f->height = floorf(fi->lineFeed * f->sscale + 0.5f);
+    f->ascent = gi->baselinePos * f->sscale;
+    return f;
+}
+static float sys_advance(GfxFont *f, int cp) {
+    return fontGetCharWidthInfo(f->cfnt, fontGlyphIndexFromCodePoint(f->cfnt, (u32)cp))->charWidth * f->sscale;
+}
+
 float gfx_font_char_width(GfxFont *f, int cp) {
     if (!f) return 0;
+    if (f->sys) return sys_advance(f, cp);
     return font_glyph(f, cp)->advance;
 }
 float gfx_font_width(GfxFont *f, const char *text) {
@@ -1054,6 +1092,7 @@ float gfx_font_width(GfxFont *f, const char *text) {
         int l, cp = utf8_decode(text, &l);
         text += l;
         if (cp == '\n') { if (w > best) best = w; w = 0; prev = 0; continue; }
+        if (f->sys) { w += sys_advance(f, cp); continue; }
         if (prev) w += floorf(stbtt_GetCodepointKernAdvance(&f->info, prev, cp) * f->scale + 0.5f);
         w += font_glyph(f, cp)->advance;
         prev = cp;
@@ -1074,10 +1113,20 @@ void gfx_print(GfxFont *f, const char *text, double x, double y, double r, doubl
     gfx_translate(-ox, -oy);
     float pen = 0, line = 0;
     int prev = 0;
+    if (f->sys) L.mode = MODE_SILHOUETTE;   /* alpha-only sheets: the colour is the vertex colour */
     while (*text) {
         int l, cp = utf8_decode(text, &l);
         text += l;
         if (cp == '\n') { pen = 0; line += f->height; prev = 0; continue; }
+        if (f->sys) {
+            fontGlyphPos_s gp;
+            fontCalcGlyphPos(&gp, f->cfnt, fontGlyphIndexFromCodePoint(f->cfnt, (u32)cp), GLYPH_POS_CALC_VTXCOORD, f->sscale, f->sscale);
+            if (gp.sheetIndex >= 0 && gp.width > 0)
+                emit_quad_look(&f->sheets[gp.sheetIndex], &L, pen + gp.vtxcoord.left, line + gp.vtxcoord.top, pen + gp.vtxcoord.right,
+                               line + gp.vtxcoord.bottom, gp.texcoord.left, gp.texcoord.top, gp.texcoord.right, gp.texcoord.bottom);
+            pen += gp.xAdvance;
+            continue;
+        }
         if (prev) pen += floorf(stbtt_GetCodepointKernAdvance(&f->info, prev, cp) * f->scale + 0.5f);
         const Glyph *g = font_glyph(f, cp);
         if (g->page >= 0)

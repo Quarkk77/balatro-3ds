@@ -34,6 +34,8 @@ GfxQuad gfx_quad(float x, float y, float w, float h, float sw, float sh);
 /* ---------------- fonts ---------------- */
 typedef struct GfxFont GfxFont;
 GfxFont *gfx_load_font(const char *path, float size);
+/* 3DS: the console's own font (needs no files), sized like a gfx_load_font of that size */
+GfxFont *gfx_load_system_font(float size);
 float gfx_font_width(GfxFont *f, const char *text);     /* love Font:getWidth */
 float gfx_font_height(GfxFont *f);                      /* love Font:getHeight */
 float gfx_font_char_width(GfxFont *f, int codepoint);

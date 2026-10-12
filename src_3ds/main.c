@@ -98,8 +98,10 @@ static double draw_wrapped(GfxFont *f, const char *text, double cx, double cy, d
     return lh * n;
 }
 
+static void lockout_shots(double t);
 static void o3ds_lockout(void) {
     GfxFont *f = gfx_load_font(res_path("resources/fonts/m6x11plus.ttf"), 32);
+    if (!f) f = gfx_load_system_font(32);   /* the game's assets may not be installed */
     static const float bg[4] = { 0x37 / 255.f, 0x42 / 255.f, 0x44 / 255.f, 1 };   /* G.C.BLACK */
     static const float nope[4] = { 0xa7 / 255.f, 0x82 / 255.f, 0xd1 / 255.f, 1 };  /* Tarot purple */
     static const float white[4] = { 1, 1, 1, 1 };
@@ -142,14 +144,89 @@ static void o3ds_lockout(void) {
             draw_shadowed(f, notice, 200 - nw / 2, 240 - nh - 8, nsc, white, 0.4f);
             gfx_set_screen_mask(GFX_SCREEN_BOTH);
         }
-        /* debug: SHOTS also works here */
-        static int shot_i;
-        const char *shots = dbg_get("SHOTS");
-        if (shots) {
-            const char *q = shots;
-            for (int k = 0; k < shot_i && q; k++) { q = strchr(q, ','); if (q) q++; }
-            if (q && *q && t >= atof(q)) { gfx_screenshot(tfmt("%s/shot_%02d.png", save_dir(), shot_i)); shot_i++; }
+        lockout_shots(t);
+        gfx_end_frame();
+    }
+}
+
+/* debug: SHOTS also works on the lockout screens */
+static void lockout_shots(double t) {
+    static int shot_i;
+    const char *shots = dbg_get("SHOTS");
+    if (shots) {
+        const char *q = shots;
+        for (int k = 0; k < shot_i && q; k++) { q = strchr(q, ','); if (q) q++; }
+        if (q && *q && t >= atof(q)) { gfx_screenshot(tfmt("%s/shot_%02d.png", save_dir(), shot_i)); shot_i++; }
+    }
+}
+
+/* ------------------------------------------------------------------ */
+/* Missing assets: balatro_c ships without Balatro's own files; the    */
+/* installer (src_install/install_balatro_c.sh) copies them from the   */
+/* user's copy to ASSET_DIR. Drawn with the system font.               */
+/* ------------------------------------------------------------------ */
+#define ASSET_DIR "sdmc:/3ds/balatro_c/assets"
+extern const char *const ASSET_LIST[];
+extern const size_t ASSET_COUNT;
+
+static int assets_present(void) {
+    int n = 0;
+    for (size_t i = 0; i < ASSET_COUNT; i++) n += file_exists(tfmt("%s/%s", ASSET_DIR, ASSET_LIST[i]));
+    return n;
+}
+
+static void assets_lockout(int have) {
+    GfxFont *f = gfx_load_system_font(32);
+    static const float bg[4] = { 0x37 / 255.f, 0x42 / 255.f, 0x44 / 255.f, 1 };    /* G.C.BLACK */
+    static const float red[4] = { 0xfe / 255.f, 0x5f / 255.f, 0x55 / 255.f, 1 };   /* G.C.RED */
+    static const float gold[4] = { 0xea / 255.f, 0xc0 / 255.f, 0x58 / 255.f, 1 };  /* G.C.GOLD */
+    static const float white[4] = { 1, 1, 1, 1 };
+    static const float grey[4] = { 0.75f, 0.78f, 0.8f, 1 };
+    static const float panel[4] = { 0x22 / 255.f, 0x22 / 255.f, 0x22 / 255.f, 0.55f };
+    const char *msg = "balatro_c does not include Balatro's files. It needs them from your own copy of Balatro "
+                      "(bought on Steam, version 1.0.1o).";
+    const char *how = "Put this SD card in the computer Balatro is installed on and run install_balatro_c.sh. "
+                      "It copies the files to /3ds/balatro_c/assets.";
+    char found[64];
+    snprintf(found, sizeof found, "Found %d of %d files.", have, (int)ASSET_COUNT);
+    const char *notice = "NOTICE: Not affiliated with LocalThunk.";
+    double t0 = gfx_time();
+    InputEvent ev[64];
+    bool quit = false;
+    while (!quit && aptMainLoop()) {
+        int n = gfx_poll_input(ev, ARRLEN(ev));
+        for (int i = 0; i < n; i++)
+            if (ev[i].type == INPUT_QUIT || (ev[i].type == INPUT_GAMEPAD_PRESSED && !strcmp(ev[i].key, "start"))) quit = true;
+        double t = gfx_time() - t0;
+        gfx_begin_frame();
+        gfx_clear(bg[0], bg[1], bg[2], 1);
+        if (f) {
+            /* top: the title, bobbing gently, and what is wrong */
+            gfx_set_screen_mask(GFX_SCREEN_TOP);
+            double bob = 3 * sin(t * 2), tsc = 1.6, tw = gfx_font_width(f, "balatro_c") * tsc;
+            draw_shadowed(f, "balatro_c", 200 - tw / 2, 58 + bob, tsc, red, 0.5f);
+            const char *sub = "Balatro's files are missing";
+            double ssc = 0.8, sw = gfx_font_width(f, sub) * ssc;
+            draw_shadowed(f, sub, 200 - sw / 2, 128, ssc, gold, 0.5f);
+            double fsc = 0.55, fw = gfx_font_width(f, found) * fsc;
+            draw_shadowed(f, found, 200 - fw / 2, 166, fsc, grey, 0.4f);
+            const char *ver = PORT_VERSION;
+            double vsc = 0.45, vw = gfx_font_width(f, ver) * vsc;
+            draw_shadowed(f, ver, 400 - vw - 6, 240 - gfx_font_height(f) * vsc - 4, vsc, grey, 0.4f);
+            /* bottom: how to install them (the bottom window is x 40..360) */
+            gfx_set_screen_mask(GFX_SCREEN_BOTTOM);
+            gfx_set_color(panel);
+            gfx_rectangle(GFX_FILL, 50, 8, 300, 182);
+            double h1 = draw_wrapped(f, msg, 200, 58, 284, 0.5, white);
+            draw_wrapped(f, how, 200, 58 + h1 / 2 + 48, 284, 0.5, white);
+            double nsc = 0.45, nw = gfx_font_width(f, notice) * nsc, nh = gfx_font_height(f) * nsc;
+            const char *ex = "START: exit";
+            double ew = gfx_font_width(f, ex) * nsc;
+            draw_shadowed(f, ex, 200 - ew / 2, 240 - 2 * nh - 18, nsc, grey, 0.4f);
+            draw_shadowed(f, notice, 200 - nw / 2, 240 - nh - 8, nsc, white, 0.4f);
+            gfx_set_screen_mask(GFX_SCREEN_BOTH);
         }
+        lockout_shots(t);
         gfx_end_frame();
     }
 }
@@ -233,7 +310,7 @@ int main(int argc, char **argv) {
     heap_set_stack_top(&argc);
     osSetSpeedupEnable(true);   /* New 3DS: 804MHz + L2 cache */
     romfsInit();
-    set_resource_root("romfs:");
+    set_resource_root(ASSET_DIR);   /* Balatro's own files, installed from the user's copy */
     debug_cfg = file_read_all(tfmt("%s/debug.txt", save_dir()), NULL);
     if (debug_cfg) freopen(tfmt("%s/log.txt", save_dir()), "w", stderr);
     if (debug_cfg) setvbuf(stderr, NULL, _IONBF, 0);
@@ -254,6 +331,16 @@ int main(int argc, char **argv) {
     APT_CheckNew3DS(&is_new3ds);
     if (!is_new3ds || dbg_get("FORCE_O3DS")) {
         o3ds_lockout();
+        gfx_close_window();
+        romfsExit();
+        return 0;
+    }
+    /* without (at least 80% of) Balatro's files: how to install them instead of the game.
+     * Debug: FORCE_NOASSETS=1 shows that screen anyway. */
+    int have = assets_present();
+    fprintf(stderr, "assets: %d of %d in %s\n", have, (int)ASSET_COUNT, ASSET_DIR);
+    if (have * 5 < (int)ASSET_COUNT * 4 || dbg_get("FORCE_NOASSETS")) {
+        assets_lockout(have);
         gfx_close_window();
         romfsExit();
         return 0;
