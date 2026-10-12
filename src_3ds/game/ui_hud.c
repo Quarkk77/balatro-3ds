@@ -419,7 +419,8 @@ UIDef *create_UIBox_HUD(void) {
             UIR(CFG(.align = "cm", .r = 0.1, .minw = 1.2, .colour = temp_col2, .id = "row_round_text"),
                 UIO(CFG(.object = &DYNATEXT(DT_REF(REFN(&G.GAME.round)), DT_COL1(G.C.IMPORTANT), .shadow = true, .scale = 2 * scale)->n, .id = "round_UI_count"))))));
 
-    UIDef *hand = UIR(CFG(.align = "cm", .id = "hand_text_area", .colour = darken(G.C.BLACK, 0.1), .r = 0.1, .emboss = 0.05, .padding = 0.03),
+    UIDef *hand = UIR(CFG(.align = "cm", .id = "hand_text_area", .colour = darken(G.C.BLACK, 0.1), .r = 0.1, .emboss = 0.05, .padding = 0.03,
+                          .screen_mask = GFX_SCREEN_BOTTOM),
         UIC(CFG(.align = "cm"),
             UIR(CFG(.align = "cm", .minh = 1.1),
                 UIO(CFG(.id = "hand_name", .func = G_FUNCS_hand_text_UI_set,
@@ -442,7 +443,9 @@ UIDef *create_UIBox_HUD(void) {
                             .object = &DYNATEXT(DT_REF(REFS(&cr->current_hand.mult_text)), DT_COL1(G.C.UI.TEXT_LIGHT), .font = fen, .shadow = true, .float_ = true,
                                                 .scale = scale * 2.3)->n))))));
 
-    UIDef *dollars_chips = UIR(CFG(.align = "cm", .r = 0.1, .padding = 0, .colour = G.C.DYN_UI.BOSS_MAIN, .emboss = 0.05, .id = "row_dollars_chips"),
+    /* 3DS: round score and chips x mult are bottom screen only */
+    UIDef *dollars_chips = UIR(CFG(.align = "cm", .r = 0.1, .padding = 0, .colour = G.C.DYN_UI.BOSS_MAIN, .emboss = 0.05, .id = "row_dollars_chips",
+                                   .screen_mask = GFX_SCREEN_BOTTOM),
         UIC(CFG(.align = "cm", .padding = 0.1),
             UIC(CFG(.align = "cm", .minw = 1.3),
                 UIR(CFG(.align = "cm", .padding = 0, .maxw = 1.3), UIT(CFG(.text = LOC("k_round"), .scale = 0.42, .colour = G.C.UI.TEXT_LIGHT, .shadow = true))),
@@ -453,16 +456,14 @@ UIDef *create_UIBox_HUD(void) {
                 UIT(CFG(.ref = REFS(&G.GAME.chips_text), .lang = len, .scale = 0.85, .colour = G.C.WHITE, .id = "chip_UI_count", .func = G_FUNCS_chip_UI_set,
                         .shadow = true)))));
 
-    UIDef *buttons = UIC(CFG(.align = "cm", .r = 0.1, .colour = G.C.CLEAR, .shadow = true, .id = "button_area", .padding = 0.2),
-        UIR(CFG(.id = "run_info_button", .align = "cm", .minh = 1.75, .minw = 1.5, .padding = 0.05, .r = 0.1, .hover = true, .colour = G.C.RED,
-                .button = G_FUNCS_run_info, .shadow = true),
-            UIR(CFG(.align = "cm", .padding = 0, .maxw = 1.4), UIT(CFG(.text = LOC("b_run_info_1"), .scale = 1.2 * scale, .colour = G.C.UI.TEXT_LIGHT, .shadow = true))),
-            UIR(CFG(.align = "cm", .padding = 0, .maxw = 1.4),
-                UIT(CFG(.text = LOC("b_run_info_2"), .scale = 1 * scale, .colour = G.C.UI.TEXT_LIGHT, .shadow = true,
-                        .focus_args = FOCUS(.button = G.F_GUIDE ? "guide" : "back", .orientation = "bm"), .func = G_FUNCS_set_button_pip)))),
-        UIR(CFG(.align = "cm", .minh = 1.75, .minw = 1.5, .padding = 0.05, .r = 0.1, .hover = true, .colour = G.C.ORANGE, .button = G_FUNCS_options, .shadow = true),
-            UIC(CFG(.align = "cm", .maxw = 1.4, .focus_args = FOCUS(.button = "start", .orientation = "bm"), .func = G_FUNCS_set_button_pip),
-                UIT(CFG(.text = LOC("b_options"), .scale = scale, .colour = G.C.UI.TEXT_LIGHT, .shadow = true)))));
+    /* 3DS: the round stats are their own box (top screen only) held in an O
+     * node, so they centre in the column and ID lookups still reach them; the
+     * Run Info / Options buttons are a separate box over the same row
+     * (create_UIBox_HUD_buttons, bottom screen only). */
+    UIBox *stats = uibox_new(UIROOT(CFG(.align = "cm", .colour = G.C.CLEAR), uidef_add_all(UIC(CFG(.align = "cm")), round)),
+                             UIBCFG(.has_offset = true, .offset = { 0, 0 }));
+    stats->screen_mask = GFX_SCREEN_TOP;
+    G.HUD_stats = stats;
 
     return UIROOT(CFG(.align = "cm", .padding = 0.03, .colour = G.C.UI.TRANSPARENT_DARK),
         UIR(CFG(.align = "cm", .padding = 0.05, .colour = G.C.DYN_UI.MAIN, .r = 0.1),
@@ -472,8 +473,24 @@ UIDef *create_UIBox_HUD(void) {
                 dollars_chips,
                 hand,
                 UIR(CFG(.align = "cm", .id = "row_round"),
-                    UIC(CFG(.align = "cm"), buttons),
-                    uidef_add_all(UIC(CFG(.align = "cm")), round)))));
+                    UIO(CFG(.object = &stats->n))))));
+}
+
+UIDef *create_UIBox_HUD_buttons(void) {
+    double scale = 0.4;
+    UIDef *buttons = UIC(CFG(.align = "cm", .r = 0.1, .colour = G.C.CLEAR, .shadow = true, .id = "button_area", .padding = 0.2),
+        /* 3DS: wider than the original 1.5 with larger text, for the bottom screen */
+        UIR(CFG(.id = "run_info_button", .align = "cm", .minh = 1.75, .minw = 3.6, .padding = 0.05, .r = 0.1, .hover = true, .colour = G.C.RED,
+                .button = G_FUNCS_run_info, .shadow = true),
+            UIR(CFG(.align = "cm", .padding = 0, .maxw = 3.4), UIT(CFG(.text = LOC("b_run_info_1"), .scale = 1.8 * scale, .colour = G.C.UI.TEXT_LIGHT, .shadow = true))),
+            UIR(CFG(.align = "cm", .padding = 0, .maxw = 3.4),
+                UIT(CFG(.text = LOC("b_run_info_2"), .scale = 1.5 * scale, .colour = G.C.UI.TEXT_LIGHT, .shadow = true,
+                        .focus_args = FOCUS(.button = G.F_GUIDE ? "guide" : "back", .orientation = "bm"), .func = G_FUNCS_set_button_pip)))),
+        UIR(CFG(.align = "cm", .minh = 1.75, .minw = 3.6, .padding = 0.05, .r = 0.1, .hover = true, .colour = G.C.ORANGE, .button = G_FUNCS_options, .shadow = true),
+            UIC(CFG(.align = "cm", .maxw = 3.4, .focus_args = FOCUS(.button = "start", .orientation = "bm"), .func = G_FUNCS_set_button_pip),
+                UIT(CFG(.text = LOC("b_options"), .scale = 1.6 * scale, .colour = G.C.UI.TEXT_LIGHT, .shadow = true)))));
+
+    return UIROOT(CFG(.align = "cm", .colour = G.C.CLEAR), buttons);
 }
 
 /* ------------------------------------------------------------------ */
@@ -494,6 +511,7 @@ UIDef *create_UIBox_blind_select(void) {
             UIIF(reroll, UIBUTTON(.label = { localize_key("b_reroll_boss"), tfmt("%s10", localize_key("$")) }, .nlabel = 2,
                                   .button = G_FUNCS_reroll_boss, .func = G_FUNCS_reroll_boss_button))),
         UIBCFG(.align = "cm", .has_offset = true, .offset = { 0, -15 }, .major = &UIBox_get_UIE_by_ID(G.HUD, "row_blind", NULL)->n, .bond = BOND_WEAK));
+    G.blind_prompt_box->screen_mask = GFX_SCREEN_TOP;   /* 3DS: sits in the blind panel */
     add_event(EVENT(.trigger = TRIG_IMMEDIATE, .func = ev_prompt_drop));
 
     double width = G.hand->n.T->w;

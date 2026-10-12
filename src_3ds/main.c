@@ -38,7 +38,7 @@ static const char *dbg_get(const char *key) {
 }
 
 /* debug automation: BALATRO_SCRIPT="t:click=x,y;t:key=name;t:move=x,y" (times in seconds) */
-typedef struct { double t; char kind; double x, y; char key[32]; int stage; } ScriptStep;
+typedef struct { double t; char kind; double x, y, hold; char key[32]; int stage; } ScriptStep;
 static ScriptStep script[8192];
 static int nscript, script_pos;
 
@@ -50,7 +50,7 @@ static void parse_script(const char *s) {
         const char *c = strchr(s, ':');
         if (!c) break;
         c++;
-        if (!strncmp(c, "click=", 6)) { st->kind = 'c'; sscanf(c + 6, "%lf,%lf", &st->x, &st->y); }
+        if (!strncmp(c, "click=", 6)) { st->kind = 'c'; st->hold = 0.05; sscanf(c + 6, "%lf,%lf,%lf", &st->x, &st->y, &st->hold); }
         else if (!strncmp(c, "move=", 5)) { st->kind = 'm'; sscanf(c + 5, "%lf,%lf", &st->x, &st->y); }
         else if (!strncmp(c, "key=", 4) || !strncmp(c, "button=", 7)) {
             st->kind = c[0] == 'k' ? 'k' : 'b';
@@ -74,7 +74,7 @@ static void run_script(double now) {
         if (st->kind == 'c') {
             gfx_override_mouse(true, st->x, st->y);
             e.touch = true;
-            if (st->stage == 0) { e.type = INPUT_MOUSE_PRESSED; e.x = st->x; e.y = st->y; e.button = 1; handle_event(&e); st->stage = 1; st->t = now + 0.05; return; }
+            if (st->stage == 0) { e.type = INPUT_MOUSE_PRESSED; e.x = st->x; e.y = st->y; e.button = 1; handle_event(&e); st->stage = 1; st->t = now + st->hold; return; }
             e.type = INPUT_MOUSE_RELEASED; e.x = st->x; e.y = st->y; e.button = 1; handle_event(&e);
         } else if (st->kind == 'b') {
             /* a 3DS button, by its LOVE gamepad name (a, b, dpup, start...) */

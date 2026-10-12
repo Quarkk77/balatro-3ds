@@ -563,12 +563,44 @@ void game_update(double dt) {
  *  - main menu (after the splash): buttons, menus opened from them and their
  *    cards and tooltips on the bottom screen only; the background and screen
  *    wipes on both
- *  - in a run: everything on both screens */
+ *  - in a run: the blind panel (and its chip) and the round stats on top; round
+ *    score, chips x mult and the Run Info / Options buttons on the bottom (set
+ *    with UIBox/UIConfig screen_mask in ui_hud.c); everything else on both */
+static int screen_for(Node *n);
+
+/* the screens an element ends up on: the nearest screen_mask on its element
+ * chain, its UIBox, or the boxes hosting that box, else the top-level rule */
+static int effective_screen(Node *n, int depth) {
+    while (n && depth++ < 64) {
+        if (IS(n, NT_UIELEMENT)) {
+            UIElement *e = (UIElement *)n;
+            if (e->config && e->config->screen_mask) return e->config->screen_mask;
+            if (n->parent) { n = n->parent; continue; }
+            n = e->UIBox ? &e->UIBox->n : NULL;
+            continue;
+        }
+        if (IS(n, NT_UIBOX)) {
+            UIBox *b = (UIBox *)n;
+            if (b->screen_mask) return b->screen_mask;
+            if (n->parent) { n = n->parent; continue; }   /* box held by a UIT.O element */
+        }
+        return screen_for(n);
+    }
+    return GFX_SCREEN_BOTH;
+}
+
 static int screen_for(Node *n) {
+    /* tooltips and drag popups follow whatever they belong to */
+    if (IS(n, NT_UIBOX) && ptrvec_contains(&G.I.POPUP, n)) {
+        UIBox *b = (UIBox *)n;
+        Node *owner = b->config ? (b->config->parent ? b->config->parent : b->config->major) : NULL;
+        if (owner && owner != n) return effective_screen(owner, 0);
+    }
     if ((G.SPLASH_BACK && n == &G.SPLASH_BACK->n) || (G.SPLASH_FRONT && n == &G.SPLASH_FRONT->n) ||
         (G.screenwipe && n == &G.screenwipe->n))
         return GFX_SCREEN_BOTH;
-    if (G.version_label && n == &G.version_label->n) return GFX_SCREEN_TOP;
+    if ((G.version_label && n == &G.version_label->n) || (G.notice_label && n == &G.notice_label->n)) return GFX_SCREEN_TOP;
+    if (IS(n, NT_BLIND)) return GFX_SCREEN_TOP;   /* the blind chip in the HUD's blind panel */
     if (G.SPLASH_LOGO && n == &G.SPLASH_LOGO->n) return GFX_SCREEN_TOP;
     if (G.title_top && n == &G.title_top->n) return GFX_SCREEN_TOP;
     if (IS(n, NT_CARD)) {

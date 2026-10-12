@@ -325,7 +325,16 @@ void UIBox_remove(Node *n) {
     Moveable_remove(n);
 }
 
+static void UIBox_draw_inner(Node *n);
 void UIBox_draw(Node *n) {
+    UIBox *b = (UIBox *)n;
+    if (!b->screen_mask) { UIBox_draw_inner(n); return; }
+    int prev = gfx_get_screen_mask();
+    gfx_set_screen_mask(b->screen_mask);
+    UIBox_draw_inner(n);
+    gfx_set_screen_mask(prev);
+}
+static void UIBox_draw_inner(Node *n) {
     UIBox *b = (UIBox *)n;
     if (n->FRAME.DRAW >= G.FRAMES.DRAW && !G.OVERLAY_TUTORIAL) return;
     n->FRAME.DRAW = G.FRAMES.DRAW;
@@ -519,9 +528,12 @@ void UIElement_draw_children(Node *n) {
         if (vc && vc->draw_layer) continue;
         bool has_self = v->vt->draw_self != NULL;
         bool draw_after = vc && vc->draw_after;
+        int prev_mask = 0;
+        if (vc && vc->screen_mask) { prev_mask = gfx_get_screen_mask(); gfx_set_screen_mask(vc->screen_mask); }
         if (has_self && !draw_after) v->vt->draw_self(v); else node_draw(v);
         if (v->vt->draw_children) v->vt->draw_children(v);
         if (has_self && draw_after) v->vt->draw_self(v); else node_draw(v);
+        if (prev_mask) gfx_set_screen_mask(prev_mask);
     }
 }
 

@@ -6,7 +6,11 @@
 #define EVFN(name) static bool name(Event *e_, void *p_)
 #define LOC(k) ((char *)localize_key(k))
 
-static UIElement *hud(const char *id) { return G.HUD ? UIBox_get_UIE_by_ID(G.HUD, id, NULL) : NULL; }
+static UIElement *hud(const char *id) {
+    UIElement *e = G.HUD ? UIBox_get_UIE_by_ID(G.HUD, id, NULL) : NULL;
+    if (!e && G.HUD_buttons) e = UIBox_get_UIE_by_ID(G.HUD_buttons, id, NULL);
+    return e;
+}
 
 /* ------------------------------------------------------------------ */
 /* set_screen_positions                                                */

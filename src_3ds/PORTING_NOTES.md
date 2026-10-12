@@ -87,7 +87,14 @@ sounds, shader files (only their names are used), fonts except the GoNoto fallba
 - Main menu layout (3DS): the title is vertically centred on the top screen; Play/Options/Quit/Collection
   are centred on the bottom screen and, with the profile and language buttons, scaled by `MENU_SCALE`
   (ui_setup.c). The language button is its own box (bottom right) instead of part of `G.MAIN_MENU_UI`.
-- The main menu shows `PORT_VERSION` ("3DS-b.0.1", game.h); `G.VERSION` stays the game's own version
+- In a run, the HUD row under the score is split per screen: the round stats (hands, discards, money,
+  ante, round) are a box inside G.HUD (`G.HUD_stats`, top screen) and Run Info / Options are a separate
+  box centred over that row (`G.HUD_buttons`, bottom screen). `UIBox.screen_mask` limits a box to one
+  screen (and `UIConfig.screen_mask` one element subtree); the `hud()` lookups also search G.HUD_buttons.
+  Also per screen: the blind panel (G.HUD_blind, the blind select prompt and the Blind chip) is top only;
+  round score and chips x mult are bottom only. Run Info / Options are wider (3.6) with larger text.
+  Tooltips and drag popups (G.I.POPUP) use the screen of the element they belong to.
+- The main menu shows `PORT_VERSION` ("3DS-b.0.1.1", game.h); `G.VERSION` stays the game's own version
   because it is written into saves. Debug screenshots also write `shot_NN_bottom.png`.
 - Textures: PNGs are decoded with stb_image on first draw (lazy, to save memory) and cut into power-of-two
   tiles of at most 1024x1024; a quad that spans tiles is drawn in pieces. The two studio logos are

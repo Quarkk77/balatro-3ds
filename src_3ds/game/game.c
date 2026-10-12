@@ -556,12 +556,15 @@ void game_delete_run(void) {
         remove_box(&G.booster_pack);
         remove_box(&G.MAIN_MENU_UI);
         G.version_label = NULL;   /* removed with the stage objects */
+        G.notice_label = NULL;
         remove_sprite(&G.SPLASH_FRONT);
         remove_sprite(&G.SPLASH_BACK);
         remove_sprite(&G.SPLASH_LOGO);
         remove_box(&G.GAME_OVER_UI);
         remove_box(&G.collection_alert);
         remove_box(&G.HUD);
+        remove_box(&G.HUD_buttons);
+        G.HUD_stats = NULL;   /* removed with G.HUD */
         remove_box(&G.HUD_blind);
         for (int i = 0; i < G.HUD_tags.count; i++) node_remove(G.HUD_tags.items[i]);
         vec_clear(&G.HUD_tags);
@@ -1038,8 +1041,12 @@ void game_main_menu(const char *change_context) {
     add_event(EVENT(.blockable = 0, .func = ev_menu_tallies));
 
     G.version_label = uibox_new(UIROOT(CFG(.align = "cm", .colour = G.C.UI.TRANSPARENT_DARK),
-                     UIT(CFG(.text = (char *)PORT_VERSION, .scale = 0.3, .colour = G.C.UI.TEXT_LIGHT))),
+                     UIT(CFG(.text = (char *)PORT_VERSION, .scale = 0.45, .colour = G.C.UI.TEXT_LIGHT))),
               UIBCFG(.align = "tri", .has_offset = true, .offset = { 0, 0 }, .major = G.ROOM_ATTACH, .bond = BOND_WEAK));
+    /* 3DS: unofficial-port notice along the bottom of the top screen */
+    G.notice_label = uibox_new(UIROOT(CFG(.align = "cm", .padding = 0.05, .r = 0.1, .colour = G.C.UI.TRANSPARENT_DARK),
+                     UIT(CFG(.text = "NOTICE: Not affiliated with LocalThunk.", .scale = 0.45, .colour = G.C.UI.TEXT_LIGHT, .shadow = true))),
+              UIBCFG(.align = "bmi", .has_offset = true, .offset = { 0, -0.1 }, .major = G.ROOM_ATTACH, .bond = BOND_WEAK));
 }
 
 /* ------------------------------------------------------------------ */
@@ -1424,9 +1431,14 @@ void game_start_run(StartRunArgs args) {
     CardArea_hard_set_cards(G.deck);
 
     G.HUD = uibox_new(create_UIBox_HUD(), UIBCFG(.align = "cli", .has_offset = true, .offset = { -0.7, 0 }, .major = G.ROOM_ATTACH));
+    G.HUD_buttons = uibox_new(create_UIBox_HUD_buttons(),
+                              UIBCFG(.major = &UIBox_get_UIE_by_ID(G.HUD, "row_round", NULL)->n, .align = "cm", .has_offset = true,
+                                     .offset = { 0, 0 }, .bond = BOND_STRONG));
+    G.HUD_buttons->screen_mask = GFX_SCREEN_BOTTOM;
     G.HUD_blind = uibox_new(create_UIBox_HUD_blind(),
                             UIBCFG(.major = &UIBox_get_UIE_by_ID(G.HUD, "row_blind", NULL)->n, .align = "cm", .has_offset = true,
                                    .offset = { 0, -10 }, .bond = BOND_WEAK));
+    G.HUD_blind->screen_mask = GFX_SCREEN_TOP;   /* 3DS: blind info on the top screen only */
     vec_clear(&G.HUD_tags);
 
     G.hand_text_area.chips = UIBox_get_UIE_by_ID(G.HUD, "hand_chips", NULL);

@@ -1063,6 +1063,8 @@ typedef struct Globals {
     int tagid;
 
     /* UI boxes */
+    UIBox *HUD_buttons;        /* 3DS: Run Info / Options, bottom screen only */
+    UIBox *HUD_stats;          /* 3DS: hands, discards, money, ante, round; top screen only (inside G.HUD) */
     UIBox *HUD, *HUD_blind, *buttons, *deck_preview, *shop, *blind_select, *booster_pack, *MAIN_MENU_UI, *GAME_OVER_UI;
     UIBox *collection_alert, *OVERLAY_MENU, *OVERLAY_TUTORIAL, *screenwipe, *round_eval, *boss_warning_text;
     UIBox *achievement_notification, *online_leaderboard, *debug_tools, *profile_button_unused;
@@ -1070,6 +1072,7 @@ typedef struct Globals {
     Sprite *SPLASH_BACK, *SPLASH_FRONT, *SPLASH_LOGO;
     Card *splash_jimbo;        /* 3DS: the opening Jimbo, shown on the bottom screen only */
     UIBox *version_label;      /* 3DS: main menu version text, top screen only */
+    UIBox *notice_label;       /* 3DS: main menu affiliation notice, top screen only */
     Particles *booster_pack_sparkles, *booster_pack_meteors, *booster_pack_stars;
     struct {
         UIElement *chips, *mult, *ante, *round, *chip_total, *handname, *hand_level, *game_chips, *blind_chips, *blind_spacer;
@@ -1167,7 +1170,7 @@ typedef struct Globals {
 extern Globals G;
 /* version shown on the main menu; G.VERSION stays the game's version so saves
  * keep matching the desktop build */
-#define PORT_VERSION "3DS-b.0.1"
+#define PORT_VERSION "3DS-b.0.1.1"
 
 PtrVec *instance_list(const char *name);  /* G.I[name] */
 CardArea *cardarea_by_name(const char *name);

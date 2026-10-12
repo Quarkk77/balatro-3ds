@@ -489,6 +489,7 @@ typedef struct {
 } ProgressBar;
 
 struct UIConfig {
+    int screen_mask;           /* 3DS: 0 = same screens as its parent, else GFX_SCREEN_* */
     /* layout */
     const char *align;
     double padding;          /* nil -> UIT_PADDING */
@@ -643,6 +644,7 @@ struct UIBox {
     bool no_esc;
     int joker_unlock_table;
     int step; bool step_complete, skip_steps;   /* tutorial overlay */
+    int screen_mask;        /* 3DS: 0 = same screens as its parent, else GFX_SCREEN_* */
 };
 
 struct UIElement {
