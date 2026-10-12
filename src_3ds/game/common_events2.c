@@ -516,7 +516,8 @@ PoolResult get_current_pool(const char *type, double rarity_in, bool legendary, 
             no_flag = v->no_pool_flag; yes_flag = v->yes_pool_flag;
             if (!strcmp(type, "Enhanced")) add = true;
             else if (!strcmp(type, "Demo")) add = true;
-            else if (!(strset_has(&G.GAME.used_jokers, v->key) && !showman) && (v->unlocked || v->rarity == 4)) {
+            /* `v.unlocked ~= false`: a definition without an `unlocked` field counts as unlocked */
+            else if (!(strset_has(&G.GAME.used_jokers, v->key) && !showman) && (!v->unlocked_set || v->unlocked || v->rarity == 4)) {
                 if (str_eq(v->set, "Voucher")) {
                     if (!strset_has(&G.GAME.used_vouchers, v->key)) {
                         bool include = true;

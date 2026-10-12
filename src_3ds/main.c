@@ -290,6 +290,9 @@ int main(int argc, char **argv) {
      * target when the boss round starts */
     bool nope = dbg_get("TEST_NOPE") != NULL, nope_done = false;
     if (nope) { G.debug_force_boss = "bl_wheel"; G.debug_force_nope = true; }
+    /* test hook: TEST_JUMBO_ARCANA=1 makes the first Small Blind's skip tag a
+     * Charm Tag that opens a Jumbo Arcana Pack */
+    G.debug_jumbo_arcana = dbg_get("TEST_JUMBO_ARCANA") != NULL;
     bool bigcard = dbg_get("TEST_BIGCARD") != NULL || dbg_get("TEST_BIGCARD_EXP") || dbg_get("TEST_NANEINF"), bigcard_done = false;
     /* TEST_BIGCARD_EXP=n: worth 10^n chips instead; TEST_NANEINF=1: 10^308 chips
      * plus a Mult enhancement, so chips x mult overflows like the original's "naneinf" */

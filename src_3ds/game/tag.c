@@ -265,6 +265,7 @@ int Tag_apply_to_run(Tag *t, TagContext ctx, Card **out_card, TagEvalResult *out
         TagCtx *c = CTX(TagCtx); c->tag = t; c->lock = lock;
         if (str_eq(n, "Charm Tag")) {
             c->key = intern(tfmt("p_arcana_mega_%d", math_random_range(1, 2)));
+            if (G.debug_jumbo_arcana) c->key = "p_arcana_jumbo_1";   /* debug: TEST_JUMBO_ARCANA */
             Tag_yep(t, "+", G.C.PURPLE, ev_pack_tag, c);
             t->triggered = true; return 1;
         }

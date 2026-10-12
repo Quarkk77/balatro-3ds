@@ -118,7 +118,7 @@ sounds, shader files (only their names are used), fonts except the GoNoto fallba
   only; while still far from their place they are drawn further down, so they fly in from below the top
   screen. Discarded cards stay on the screen they were last on. Attention text (scoring popups, the
   "-1" on hands/discards) follows the screen of the element it is attached to.
-- The main menu shows `PORT_VERSION` ("3DS-b.0.1.4", game.h); `G.VERSION` stays the game's own version
+- The main menu shows `PORT_VERSION` ("3DS-b.0.2", game.h); `G.VERSION` stays the game's own version
   because it is written into saves. Debug screenshots also write `shot_NN_bottom.png`.
 - Textures: PNGs are decoded with stb_image on first draw (lazy, to save memory) and cut into power-of-two
   tiles of at most 1024x1024; a quad that spans tiles is drawn in pieces. The two studio logos are
@@ -127,8 +127,9 @@ sounds, shader files (only their names are used), fonts except the GoNoto fallba
 - Fonts: stb_truetype, rasterised at 32px into 512x512 LA8 pages and scaled (the game asks for ~200px).
 - Shaders: the PICA200 has no fragment shaders, so each LOVE shader maps to a fixed-function approximation
   (`shader_look` in gfx_3ds.c): dissolve/negative are plain draws with alpha fade and burn tint, shadows are
-  black silhouettes, foil/holo/polychrome/hologram/debuff/played are tinted overlays, the splash and
-  background shaders are flat colour gradients, flash is a white fade. CRT, flame, voucher/booster/
+  black silhouettes, the splash shader (opening whirlpool, main menu swirl) is evaluated on the CPU at
+  80x48 into a texture stretched over the screen, half the rows per frame (`splash_render`), foil/holo/polychrome/hologram/debuff/played are tinted overlays, the background
+  shader (in-run backgrounds) is evaluated the same way, a quarter of the rows per frame (`background_render`), flash is a white fade. CRT, flame, voucher/booster/
   gold-seal/negative shine overlays are not drawn. There is no G.CANVAS; the game draws straight to the
   screen target.
 - Audio: stb_vorbis. Short sounds are decoded once into a 6MB LRU cache; music and long sounds stream. All
@@ -165,7 +166,8 @@ achievements in whatever profile it is used with). `TEST_BIGCARD_EXP=n` makes th
 instead, and `TEST_NANEINF=1` gives it 10^308 chips plus the Mult enhancement so the score overflows to
 infinity and shows "naneinf" as in the original (a save then holds `inf`, which loads as nil, also as in
 the original). `TEST_NOPE=1` makes The Wheel the boss of every ante, makes The Wheel of Fortune always fail
-("Nope!") and hands out a Wheel of Fortune plus a Joker for it to target when a boss round starts. While that file exists,
+("Nope!") and hands out a Wheel of Fortune plus a Joker for it to target when a boss round starts. `TEST_JUMBO_ARCANA=1` makes
+the first Small Blind's skip tag a Charm Tag that opens a Jumbo Arcana Pack. While that file exists,
 stderr goes to `log.txt` next to it, and screenshots (`shot_NN.png`, read back from the 400x240 target)
 are written there too. `SCRIPT` also accepts `t:button=name` (LOVE gamepad names: a, b, x, y, dpup,
 leftshoulder, start...). FPS lines include heap and free linear memory.

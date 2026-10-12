@@ -1314,6 +1314,7 @@ void game_start_run(StartRunArgs args) {
         DVal *ft = tp->t == DV_TABLE ? dv_get(tp, "forced_tags") : NULL;
         const char *t1 = ft ? dv_geti_str(ft, 1, NULL) : NULL;
         G.GAME.round_resets.blind_tags[0] = t1 ? intern(t1) : get_next_tag_key(NULL);
+        if (G.debug_jumbo_arcana) G.GAME.round_resets.blind_tags[0] = "tag_charm";   /* debug: TEST_JUMBO_ARCANA */
         const char *t2 = ft ? dv_geti_str(ft, 2, NULL) : NULL;
         G.GAME.round_resets.blind_tags[1] = t2 ? intern(t2) : get_next_tag_key(NULL);
     }

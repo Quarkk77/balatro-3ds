@@ -309,6 +309,7 @@ typedef struct {
     u32 tint;            /* stage 1 mix colour, alpha = amount */
     float col[4];        /* vertex colour */
     bool gradient;       /* background: per-vertex colours */
+    C3D_Tex *screen_tex; /* drawn with this texture mapped to the screen (CPU-rendered effects) */
     float col2[4];       /* bottom colour when gradient */
 } DrawLook;
 
@@ -317,6 +318,151 @@ static void hsv_to_rgb(float h, float s, float v, float *out) {
     float r = fabsf(h * 6 - 3) - 1, g = 2 - fabsf(h * 6 - 2), b = 2 - fabsf(h * 6 - 4);
     r = r < 0 ? 0 : r > 1 ? 1 : r; g = g < 0 ? 0 : g > 1 ? 1 : g; b = b < 0 ? 0 : b > 1 ? 1 : b;
     out[0] = ((r - 1) * s + 1) * v; out[1] = ((g - 1) * s + 1) * v; out[2] = ((b - 1) * s + 1) * v;
+}
+
+/* ---- splash.fs on the CPU ----
+ * The PICA200 cannot run the swirl/smoke fragment shader, so it is evaluated
+ * here at SPLASH_W x SPLASH_H (the screen's aspect) into a texture that is
+ * stretched over the screen with bilinear filtering. Same maths as the
+ * original, with fast sin/cos; half the rows are recomputed each frame. */
+static inline u32 morton8(u32 x, u32 y);
+#define SPLASH_W 80
+#define SPLASH_H 48
+#define SPLASH_TEX 128
+static C3D_Tex splash_tex;
+static bool splash_tex_ok;
+static float splash_last_t = -1e9f, splash_last_flash = -1;
+
+static inline float fsin(float x) {
+    const float tp = 1.0f / 6.2831853f;
+    x = x * tp;
+    x -= floorf(x + 0.5f);           /* now in [-0.5, 0.5) turns */
+    x *= 6.2831853f;                 /* [-pi, pi) */
+    /* 7th order odd polynomial, max error ~1e-4 on [-pi, pi] after folding */
+    float y = x;
+    if (y > 1.5707963f) y = 3.1415927f - y;
+    else if (y < -1.5707963f) y = -3.1415927f - y;
+    float y2 = y * y;
+    return y * (1 - y2 * (1.f / 6 - y2 * (1.f / 120 - y2 * (1.f / 5040))));
+}
+static inline float fcos(float x) { return fsin(x + 1.5707963f); }
+
+static C3D_Tex *splash_render(float time, float vort_speed, float vort_offset, float mid_flash, const float *colour_1, const float *colour_2) {
+    if (!splash_tex_ok) {
+        if (!C3D_TexInit(&splash_tex, SPLASH_TEX, SPLASH_TEX, GPU_RGBA8)) return &white_tex;
+        C3D_TexSetFilter(&splash_tex, GPU_LINEAR, GPU_LINEAR);
+        C3D_TexSetWrap(&splash_tex, GPU_CLAMP_TO_EDGE, GPU_CLAMP_TO_EDGE);
+        memset(splash_tex.data, 0, splash_tex.size);
+        splash_tex_ok = true;
+    }
+    /* half the rows (alternating even/odd) per new time value, so the whole
+     * picture refreshes every two frames at half the per-frame cost */
+    if (time == splash_last_t && mid_flash == splash_last_flash) return &splash_tex;
+    splash_last_t = time; splash_last_flash = mid_flash;
+    static int phase;
+    phase ^= 1;
+    const float SW = WIN_W, SH = WIN_H, len = sqrtf(SW * SW + SH * SH);
+    const float black[3] = { 0.6f * 79 / 255.f, 0.6f * 99 / 255.f, 0.6f * 103 / 255.f };
+    float speed0 = time * vort_speed;
+    float ms = speed0 < 6 ? speed0 : 6;
+    float speed1 = time * 6 * vort_speed + vort_offset + 1033;
+    float tsm = time * 1.2f - 4;
+    if (tsm > 10) tsm = 10;
+    u32 *dst = (u32 *)splash_tex.data;
+    for (int gy = phase; gy < SPLASH_H; gy += 2) {
+        for (int gx = 0; gx < SPLASH_W; gx++) {
+            float px = (gx + 0.5f) * SW / SPLASH_W, py = (gy + 0.5f) * SH / SPLASH_H;
+            float ux = (px - 0.5f * SW) / len, uy = (py - 0.5f * SH) / len;
+            float uv_len = sqrtf(ux * ux + uy * uy);
+            float ang = atan2f(uy, ux) + (2.2f + 0.4f * ms) * uv_len - 1 - speed0 * 0.05f - ms * speed0 * 0.02f + vort_offset;
+            float svx = uv_len * fcos(ang) * 30, svy = uv_len * fsin(ang) * 30;
+            float u2x = svx + svy, u2y = svx + svy;
+            for (int i = 0; i < 5; i++) {
+                float m = fsin(svx > svy ? svx : svy);
+                u2x += m + svx; u2y += m + svy;
+                svx += 0.5f * fcos(5.1123314f + 0.353f * u2y + speed1 * 0.131121f);
+                svy += 0.5f * fsin(u2x - 0.113f * speed1);
+                float d = fcos(svx + svy) - fsin(svx * 0.711f - svy);
+                svx -= d; svy -= d;
+            }
+            float res = 1.5f + sqrtf(svx * svx + svy * svy) * 0.12f - 0.17f * tsm;
+            res = res < -2 ? -2 : res > 2 ? 2 : res;
+            if (res < 0.2f) res = (res - 0.2f) * 0.6f + 0.2f;
+            float c1p = 1 - 2 * fabsf(1 - res); if (c1p < 0) c1p = 0;
+            float c2p = 1 - 2 * res; if (c2p < 0) c2p = 0;
+            float cb = 1 - (c1p + c2p < 1 ? c1p + c2p : 1);
+            float mx = c1p > c2p ? c1p : c2p;
+            float mf = mid_flash * 0.8f > mx * 5 - 4.4f ? mid_flash * 0.8f : mx * 5 - 4.4f;
+            mf += mid_flash * mx;
+            float out[4];
+            for (int k = 0; k < 3; k++) out[k] = colour_1[k] * c1p + colour_2[k] * c2p + cb * black[k];
+            out[3] = colour_1[3] * c1p + colour_2[3] * c2p + cb * colour_1[3];
+            for (int k = 0; k < 4; k++) out[k] = out[k] * (1 - mf) + mf;
+            u32 off = ((u32)(gy >> 3) * (SPLASH_TEX >> 3) + (u32)(gx >> 3)) * 64 + morton8((u32)gx & 7, (u32)gy & 7);
+            dst[off] = ((u32)to_u8(out[0]) << 24) | ((u32)to_u8(out[1]) << 16) | ((u32)to_u8(out[2]) << 8) | to_u8(out[3]);
+        }
+    }
+    C3D_TexFlush(&splash_tex);
+    return &splash_tex;
+}
+
+/* ---- background.fs on the CPU (the in-run background), same approach ---- */
+static C3D_Tex bg_tex;
+static bool bg_tex_ok;
+static float bg_last_t = -1e9f, bg_last_spin = -1e9f;
+
+static C3D_Tex *background_render(float time, float spin_time, float spin_amount, float contrast,
+                                  const float *colour_1, const float *colour_2, const float *colour_3) {
+    if (!bg_tex_ok) {
+        if (!C3D_TexInit(&bg_tex, SPLASH_TEX, SPLASH_TEX, GPU_RGBA8)) return &white_tex;
+        C3D_TexSetFilter(&bg_tex, GPU_LINEAR, GPU_LINEAR);
+        C3D_TexSetWrap(&bg_tex, GPU_CLAMP_TO_EDGE, GPU_CLAMP_TO_EDGE);
+        memset(bg_tex.data, 0, bg_tex.size);
+        bg_tex_ok = true;
+    }
+    if (time == bg_last_t && spin_time == bg_last_spin) return &bg_tex;
+    bg_last_t = time; bg_last_spin = spin_time;
+    /* a quarter of the rows per frame: this background moves slowly */
+    static int phase;
+    phase = (phase + 1) & 3;
+    if (contrast == 0) contrast = 1;
+    const float SW = WIN_W, SH = WIN_H, len = sqrtf(SW * SW + SH * SH), SPIN_EASE = 0.5f;
+    float spd = spin_time * SPIN_EASE * 0.2f + 302.2f;
+    float midx = SW / len / 2, midy = SH / len / 2;
+    float speed = time * 2;
+    float cm = 0.25f * contrast + 0.5f * spin_amount + 1.2f;
+    float base = 0.3f / contrast;
+    u32 *dst = (u32 *)bg_tex.data;
+    for (int gy = phase; gy < SPLASH_H; gy += 4) {
+        for (int gx = 0; gx < SPLASH_W; gx++) {
+            float px = (gx + 0.5f) * SW / SPLASH_W, py = (gy + 0.5f) * SH / SPLASH_H;
+            float ux = (px - 0.5f * SW) / len - 0.12f, uy = (py - 0.5f * SH) / len;
+            float uv_len = sqrtf(ux * ux + uy * uy);
+            float ang = atan2f(uy, ux) + spd - SPIN_EASE * 20 * (spin_amount * uv_len + (1 - spin_amount));
+            float vx = (uv_len * fcos(ang) + midx - midx) * 30, vy = (uv_len * fsin(ang) + midy - midy) * 30;
+            float u2x = vx + vy, u2y = vx + vy;
+            for (int i = 0; i < 5; i++) {
+                float m = fsin(vx > vy ? vx : vy);
+                u2x += m + vx; u2y += m + vy;
+                vx += 0.5f * fcos(5.1123314f + 0.353f * u2y + speed * 0.131121f);
+                vy += 0.5f * fsin(u2x - 0.113f * speed);
+                float d = fcos(vx + vy) - fsin(vx * 0.711f - vy);
+                vx -= d; vy -= d;
+            }
+            float res = sqrtf(vx * vx + vy * vy) * 0.035f * cm;
+            res = res < 0 ? 0 : res > 2 ? 2 : res;
+            float c1p = 1 - cm * fabsf(1 - res); if (c1p < 0) c1p = 0;
+            float c2p = 1 - cm * fabsf(res); if (c2p < 0) c2p = 0;
+            float c3p = 1 - (c1p + c2p < 1 ? c1p + c2p : 1);
+            float out[4];
+            for (int k = 0; k < 3; k++) out[k] = base * colour_1[k] + (1 - base) * (colour_1[k] * c1p + colour_2[k] * c2p + c3p * colour_3[k]);
+            out[3] = base * colour_1[3] + (1 - base) * (colour_1[3] * c1p + colour_2[3] * c2p + c3p * colour_1[3]);
+            u32 off = ((u32)(gy >> 3) * (SPLASH_TEX >> 3) + (u32)(gx >> 3)) * 64 + morton8((u32)gx & 7, (u32)gy & 7);
+            dst[off] = ((u32)to_u8(out[0]) << 24) | ((u32)to_u8(out[1]) << 16) | ((u32)to_u8(out[2]) << 8) | to_u8(out[3]);
+        }
+    }
+    C3D_TexFlush(&bg_tex);
+    return &bg_tex;
 }
 
 static void shader_look(DrawLook *L) {
@@ -391,38 +537,21 @@ static void shader_look(DrawLook *L) {
         return;
     }
     case SH_SPLASH: {
-        /* splash.fs: dark smoke that swirls into colour_1 over time, with
-         * colour_2 highlights and a white flash (mid_flash) */
-        L->mode = MODE_SOLID;
+        /* splash.fs, evaluated on the CPU into a small texture (splash_render) */
         Uniform *c1 = uniform_slot(s, "colour_1", false), *c2 = uniform_slot(s, "colour_2", false);
-        static const float black[3] = { 0.6f * 79 / 255.f, 0.6f * 99 / 255.f, 0.6f * 103 / 255.f };
-        float t = uval(s, "time", 0);
-        float k = (t * 1.2f - 4) / 8;
-        k = k < 0 ? 0 : k > 0.85f ? 0.85f : k;
-        float mf = uval(s, "mid_flash", 0) * 0.8f;
-        if (mf > 1) mf = 1;
-        for (int i = 0; i < 3; i++) {
-            float a = c1 ? c1->v[i] : 0, b = c2 ? c2->v[i] : 0;
-            float top = black[i] * (1 - k) + a * k;
-            float bot = top * 0.8f + b * 0.2f * k;
-            L->col[i] = top * (1 - mf) + mf;
-            L->col2[i] = bot * (1 - mf) + mf;
-        }
-        L->col[3] = L->col2[3] = 1;
-        L->gradient = true;
+        static const float zero[4] = { 0, 0, 0, 1 };
+        L->screen_tex = splash_render(uval(s, "time", 0), uval(s, "vort_speed", 0), uval(s, "vort_offset", 0), uval(s, "mid_flash", 0),
+                                      c1 ? c1->v : zero, c2 ? c2->v : zero);
+        L->col[0] = L->col[1] = L->col[2] = L->col[3] = 1;
         return;
     }
     case SH_BACKGROUND: {
-        L->mode = MODE_SOLID;
-        Uniform *c1 = uniform_slot(s, "colour_1", false), *c2 = uniform_slot(s, "colour_2", false);
-        float a[4] = { 0, 0, 0, 1 }, b[4] = { 0, 0, 0, 1 };
-        if (c1) memcpy(a, c1->v, sizeof a);
-        if (c2) memcpy(b, c2->v, sizeof b);
-        float t = uval(s, "time", 0);
-        float w = 0.35f + 0.1f * sinf(t * 0.3f);
-        for (int i = 0; i < 4; i++) { L->col[i] = a[i]; L->col2[i] = a[i] * (1 - w) + b[i] * w; }
-        L->col[3] = L->col2[3] = a[3] > 0 ? a[3] : 1;
-        L->gradient = true;
+        /* background.fs, evaluated on the CPU (background_render) */
+        Uniform *c1 = uniform_slot(s, "colour_1", false), *c2 = uniform_slot(s, "colour_2", false), *c3 = uniform_slot(s, "colour_3", false);
+        static const float zero[4] = { 0, 0, 0, 1 };
+        L->screen_tex = background_render(uval(s, "time", 0), uval(s, "spin_time", 0), uval(s, "spin_amount", 0), uval(s, "contrast", 0),
+                                          c1 ? c1->v : zero, c2 ? c2->v : zero, c3 ? c3->v : zero);
+        L->col[0] = L->col[1] = L->col[2] = L->col[3] = 1;
         return;
     }
     default:
@@ -600,7 +729,7 @@ GfxQuad gfx_quad(float x, float y, float w, float h, float sw, float sh) {
 static void emit_quad_look(C3D_Tex *tex, const DrawLook *L, double x0, double y0, double x1, double y1,
                            float u0, float v0, float u1, float v1) {
     if (L->skip) return;
-    set_state(tex, L->mode, L->tint, false);
+    set_state(L->screen_tex ? L->screen_tex : tex, L->mode, L->tint, false);
     Vertex *v = alloc_verts(6);
     if (!v) return;
     float ax, ay, bx, by, cx, cy, dx, dy;
@@ -609,6 +738,17 @@ static void emit_quad_look(C3D_Tex *tex, const DrawLook *L, double x0, double y0
     xf(x1, y1, &cx, &cy);
     xf(x1, y0, &dx, &dy);
     u32 ct = pack_rgba(L->col), cb = L->gradient ? pack_rgba(L->col2) : ct;
+    if (L->screen_tex) {
+        /* texture mapped to the 400x240 screen, ignoring the image's own uvs */
+        const float su = (float)SPLASH_W / SPLASH_TEX, sv = (float)SPLASH_H / SPLASH_TEX;
+        #define SUV(px, py, U, V) do { U = (px) / WIN_W * su; V = 1 - (py) / WIN_H * sv; } while (0)
+        float a0, a1, b0, b1, c0, c1, d0, d1;
+        SUV(ax, ay, a0, a1); SUV(bx, by, b0, b1); SUV(cx, cy, c0, c1); SUV(dx, dy, d0, d1);
+        #undef SUV
+        put_vert(&v[0], ax, ay, a0, a1, ct); put_vert(&v[1], bx, by, b0, b1, ct); put_vert(&v[2], cx, cy, c0, c1, ct);
+        put_vert(&v[3], ax, ay, a0, a1, ct); put_vert(&v[4], cx, cy, c0, c1, ct); put_vert(&v[5], dx, dy, d0, d1, ct);
+        return;
+    }
     put_vert(&v[0], ax, ay, u0, v0, ct);
     put_vert(&v[1], bx, by, u0, v1, cb);
     put_vert(&v[2], cx, cy, u1, v1, cb);
