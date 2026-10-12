@@ -112,6 +112,7 @@ EVFN(ev_win_jimbo) {
         CardCharacter *j = card_character_new(0, 5, NAN, NAN, NULL);
         if (spot->config->object) node_remove(spot->config->object);
         spot->config->object = &j->n;
+        set_overlay_jimbo_card(j->card);   /* 3DS: bottom screen with the panel */
         j->n.ui_object_updated = true;
         CardCharacter_add_speech_bubble(j, tfmt("wq_%d", math_random_range(1, 7)), NULL, true, NULL);
         CardCharacter_say_stuff(j, 5, false);
@@ -125,6 +126,7 @@ EVFN(ev_win_overlay) {
     sound_play("win", NAN, NAN);
     G.SETTINGS.paused = true;
     overlay_menu(create_UIBox_win(), (OverlayArgs){ .no_esc = true });
+    overlay_panel_bottom_only();   /* 3DS */
     add_event(EVENT(.trigger = TRIG_AFTER, .delay = 2.5, .blocking = 0, .func = ev_win_jimbo));
     return true;
 }

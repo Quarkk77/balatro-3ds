@@ -27,14 +27,14 @@ The 3DS port is the active work.
   `balatro_c` folder when done so the user's next launch is clean.
 - debug.txt keys: SHOTS, QUIT_AFTER, SCRIPT (`t:click=x,y[,hold]`, `t:button=a`, `t:key=..`; steps run in
   order, keep them time-sorted), FPS (log with heap/linear memory), TEST_SEED, TEST_EASY, TEST_LOADOUT,
-  TEST_STRAIGHT, TEST_BIGCARD(_EXP), TEST_NANEINF, TEST_NOPE, TEST_JUMBO_ARCANA, FORCE_O3DS, GC_STRESS,
+  TEST_STRAIGHT, TEST_BIGCARD(_EXP), TEST_NANEINF, TEST_NOPE, TEST_JUMBO_ARCANA, TEST_GAMEOVER, TEST_WIN, FORCE_O3DS, GC_STRESS,
   GC_EXPLAIN. Also: script taps on the run setup PLAY are more reliable than button a.
 - Emulator speed varies run to run; give scripted taps generous spacing. Emulator fps is not hardware fps.
 - The user tests on real New 3DS hardware; Old 3DS shows a lockout screen.
 
 ## Working with this user
 - Tokens are limited: do straightforward tests, use few emulator runs and mid-test screenshots only when needed.
-- Commit only when asked. Version scheme: tags `3DS-b.0.x[.y]` (latest: `3DS-b.0.3`); bump
+- Commit only when asked. Version scheme: tags `3DS-b.0.x[.y]` (latest: `3DS-b.0.3.1`); bump
   `PORT_VERSION` in `src_3ds/game/game.h` and the note in PORTING_NOTES.md to match when committing.
   Commit messages end with the Co-Authored-By line.
 - Ask before decisions that are genuinely theirs (e.g. layout tradeoffs); otherwise act.
@@ -45,5 +45,5 @@ The 3DS port is the active work.
 - Shop and booster pack card areas still use widths scaled by the 10% larger cards (unchecked).
 - When tutorial Jimbo is on the top screen, his Next button needs the A button (top screen has no touch).
 - Bottom screen is a 1:1 320px window (x 80..400 in a run, 40..360 otherwise). Not yet checked in it:
-  game over screen, settings tabs, card tooltips at the window edges, Run Info's other tabs.
+  settings tabs, card tooltips at the window edges, Run Info's other tabs.
 - Shop contents vary slightly between runs with the same seed (also on desktop).

@@ -1309,6 +1309,12 @@ void game_start_run(StartRunArgs args) {
     G.GAME.round_resets.has_blind_tags = true;
 
     if (!save) {
+        if (G.debug_win) {   /* debug: TEST_WIN, the last boss blind (The Wall) of ante 8, small and big blinds done */
+            G.GAME.round_resets.ante = G.GAME.round_resets.blind_ante = G.GAME.win_ante;
+            G.GAME.round_resets.blind_states[BT_SMALL] = "Defeated";
+            G.GAME.round_resets.blind_states[BT_BIG] = "Defeated";
+            G.GAME.round_resets.blind_states[BT_BOSS] = "Select";
+        }
         G.GAME.round_resets.blind_choices[BT_BOSS] = get_new_boss();
         const char *fv = tp->t == DV_TABLE ? dv_get_str(tp, "forced_voucher", NULL) : NULL;
         G.GAME.current_round.voucher = fv ? intern(fv) : get_next_voucher_key(false);

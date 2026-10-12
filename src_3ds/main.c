@@ -15,7 +15,7 @@ u32 __stacksize__ = 2 * 1024 * 1024;
 
 /* Debug hooks. The desktop build reads BALATRO_* environment variables;
  * here the same keys are read from sdmc:/3ds/balatro_c/debug.txt as
- * KEY=value lines (SHOTS, QUIT_AFTER, SCRIPT, TEST_SEED, TEST_EASY, FPS).
+ * KEY=value lines (SHOTS, QUIT_AFTER, SCRIPT, TEST_SEED, TEST_EASY, TEST_GAMEOVER, FPS).
  * When that file exists, stderr is also written to log.txt next to it. */
 static char *debug_cfg;
 static const char *dbg_get(const char *key) {
@@ -274,6 +274,9 @@ int main(int argc, char **argv) {
     int shot_idx = 0;
     parse_script(dbg_get("SCRIPT"));
     bool easy = dbg_get("TEST_EASY") != NULL;
+    /* test hook: TEST_GAMEOVER=1 leaves one hand per round and makes every
+     * blind need 50,000 chips, so the first hand played ends the run */
+    bool gameover = dbg_get("TEST_GAMEOVER") != NULL;
     bool show_fps = dbg_get("FPS") != NULL;
     if (dbg_get("GC_EXPLAIN")) heap_explain = atoi(dbg_get("GC_EXPLAIN"));
     bool gc_stress = dbg_get("GC_STRESS") != NULL;
@@ -293,10 +296,16 @@ int main(int argc, char **argv) {
     /* test hook: TEST_JUMBO_ARCANA=1 makes the first Small Blind's skip tag a
      * Charm Tag that opens a Jumbo Arcana Pack */
     G.debug_jumbo_arcana = dbg_get("TEST_JUMBO_ARCANA") != NULL;
-    bool bigcard = dbg_get("TEST_BIGCARD") != NULL || dbg_get("TEST_BIGCARD_EXP") || dbg_get("TEST_NANEINF"), bigcard_done = false;
+    /* test hook: TEST_WIN=1 starts new runs at ante 8's boss blind, always The
+     * Wall (it debuffs nothing), and gives the first hand a card worth 10^50
+     * chips (TEST_BIGCARD_EXP=50), so the first hand played wins the run. The
+     * run is saved at blind select, so Continue returns to it. */
+    bool win = dbg_get("TEST_WIN") != NULL;
+    if (win) { G.debug_win = true; G.debug_force_boss = "bl_wall"; }
+    bool bigcard = dbg_get("TEST_BIGCARD") != NULL || dbg_get("TEST_BIGCARD_EXP") || dbg_get("TEST_NANEINF") || win, bigcard_done = false;
     /* TEST_BIGCARD_EXP=n: worth 10^n chips instead; TEST_NANEINF=1: 10^308 chips
      * plus a Mult enhancement, so chips x mult overflows like the original's "naneinf" */
-    double bigcard_exp = dbg_get("TEST_BIGCARD_EXP") ? atof(dbg_get("TEST_BIGCARD_EXP")) : 6;
+    double bigcard_exp = dbg_get("TEST_BIGCARD_EXP") ? atof(dbg_get("TEST_BIGCARD_EXP")) : win ? 50 : 6;
     bool naneinf = dbg_get("TEST_NANEINF") != NULL;
     int gc_last_size = 0;
     double gc_last_time = 0;
@@ -355,6 +364,14 @@ int main(int argc, char **argv) {
                 Card *c = create_card("Joker", G.jokers, false, 0, false, false, NULL, "dbg");
                 Card_add_to_deck(c, false);
                 CardArea_emplace(G.jokers, c, NULL, false);
+            }
+        }
+        if (gameover && G.STAGE == STAGE_RUN) {
+            if (G.GAME.round_resets.hands > 1) G.GAME.round_resets.hands = 1;
+            if (G.GAME.current_round.hands_left > 1) G.GAME.current_round.hands_left = 1;
+            if (G.GAME.blind && G.GAME.blind->chips > 0 && G.GAME.blind->chips != 50000) {
+                G.GAME.blind->chips = 50000;
+                str_set(&G.GAME.blind->chip_text, number_format(50000));
             }
         }
         /* test hook: BALATRO_TEST_EASY=1 makes every blind need 1 chip */

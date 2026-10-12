@@ -398,6 +398,19 @@ static void update_pack(int kind) {
 }
 
 /* ---- game over ---- */
+/* 3DS: the game over / win screens: their panel and Jimbo are on the bottom
+ * screen only, the backdrop (the overlay's root) on both */
+static Card *overlay_jimbo_card;
+void overlay_panel_bottom_only(void) {
+    if (!G.OVERLAY_MENU || !G.OVERLAY_MENU->UIRoot) return;
+    Node *r = &G.OVERLAY_MENU->UIRoot->n;
+    for (int i = 0; i < r->children.count; i++) {
+        Node *ch = r->children.items[i].node;
+        if (IS(ch, NT_UIELEMENT)) ((UIElement *)ch)->config->screen_mask = GFX_SCREEN_BOTTOM;
+    }
+}
+void set_overlay_jimbo_card(Card *c) { overlay_jimbo_card = c; }
+
 static bool ev_game_over_jimbo(Event *e, void *p) {
     (void)e; (void)p;
     UIElement *spot = G.OVERLAY_MENU ? UIBox_get_UIE_by_ID(G.OVERLAY_MENU, "jimbo_spot", NULL) : NULL;
@@ -405,6 +418,7 @@ static bool ev_game_over_jimbo(Event *e, void *p) {
         CardCharacter *jimbo = card_character_new(0, 5, NAN, NAN, NULL);
         if (spot->config->object) node_remove(spot->config->object);
         spot->config->object = &jimbo->n;
+        set_overlay_jimbo_card(jimbo->card);
         jimbo->n.ui_object_updated = true;
         CardCharacter_add_speech_bubble(jimbo, tfmt("lq_%d", math_random_range(1, 10)), NULL, true, NULL);
         CardCharacter_say_stuff(jimbo, 5, false);
@@ -425,6 +439,7 @@ static void update_game_over(double dt) {
         sound_play("whoosh2", 0.9, 0.7);
         G.SETTINGS.paused = true;
         overlay_menu(create_UIBox_game_over(), (OverlayArgs){ .no_esc = true });
+        overlay_panel_bottom_only();   /* 3DS */
         G.ROOM_jiggle += 3;
         if (G.GAME.round_resets.ante <= G.GAME.win_ante)
             add_event(EVENT(.trigger = TRIG_AFTER, .delay = 2.5, .blocking = 0, .func = ev_game_over_jimbo));
@@ -612,6 +627,14 @@ static int effective_screen(Node *n, int depth) {
     return GFX_SCREEN_BOTH;
 }
 
+/* 3DS: whether a touch (the bottom screen) can hit n: only what the bottom
+ * screen shows, and nothing while a top-only menu is open. The controller's
+ * cursor is not limited. */
+bool touch_reaches(Node *n) {
+    if (G.OVERLAY_MENU && G.OVERLAY_MENU->screen_mask == GFX_SCREEN_TOP) return false;
+    return (effective_screen(n, 0) & GFX_SCREEN_BOTTOM) != 0;
+}
+
 /* 3DS: the tutorial Jimbo (with his speech bubble and button) is shown on one
  * screen: the bottom, unless the step highlights something only the top
  * screen shows */
@@ -629,9 +652,9 @@ static int screen_for(Node *n) {
     if (G.OVERLAY_TUTORIAL && G.OVERLAY_TUTORIAL->Jimbo &&
         (n == &G.OVERLAY_TUTORIAL->Jimbo->n || (G.OVERLAY_TUTORIAL->Jimbo->card && n == &G.OVERLAY_TUTORIAL->Jimbo->card->n)))
         return tutorial_jimbo_screen();   /* the character and the card it is drawn as */
-    /* tooltips, drag popups and attention text (scoring popups) follow
-     * whatever they belong to */
-    if (IS(n, NT_UIBOX) && (((UIBox *)n)->attention_text || ptrvec_contains(&G.I.POPUP, n))) {
+    /* tooltips, drag popups, alerts and attention text (scoring popups)
+     * follow whatever they belong to */
+    if (IS(n, NT_UIBOX) && (((UIBox *)n)->attention_text || ptrvec_contains(&G.I.POPUP, n) || ptrvec_contains(&G.I.ALERT, n))) {
         UIBox *b = (UIBox *)n;
         Node *owner = b->config ? (b->config->parent ? b->config->parent : b->config->major) : NULL;
         if (owner && owner != n) return effective_screen(owner, 0);
@@ -650,6 +673,8 @@ static int screen_for(Node *n) {
         Card *c = (Card *)n;
         if (G.title_top && c->area == G.title_top) return GFX_SCREEN_TOP;
         if (G.splash_jimbo && c == G.splash_jimbo) return GFX_SCREEN_BOTTOM;
+        if (overlay_jimbo_card && !G.OVERLAY_MENU) overlay_jimbo_card = NULL;
+        if (overlay_jimbo_card && c == overlay_jimbo_card) return GFX_SCREEN_BOTTOM;   /* game over / win Jimbo */
         if (G.hand && c->area == G.hand) return c->screen3ds = GFX_SCREEN_BOTTOM;   /* cards in hand */
         if (G.play && c->area == G.play) return c->screen3ds = GFX_SCREEN_TOP;      /* played cards */
         if (G.discard && c->area == G.discard && c->screen3ds) return c->screen3ds; /* where it came from */

@@ -79,6 +79,9 @@ sounds, shader files (only their names are used), fonts except the GoNoto fallba
   (`bottom_view_target`, game_update.c), except under a screen wipe, where it jumps (the wipe hides the switch) and
   the wipe and its card are drawn moved to the middle of the bottom window. Touching it is the mouse at that window's game position, using the game's
   own touch mode (`HID 'touch'`, as LOVE reports touches). Bottom screenshots are the window (320x240).
+  Touches only hit what the bottom screen shows, and nothing while a top-only menu (the deck view) is open
+  (`touch_reaches`, checked in Node_collides_with_point); the controller's cursor still reaches everything, so e.g.
+  the title card can be dragged with the controller but not from the bottom screen.
 - Buttons are the gamepad (the game's controller support): A/B/X/Y, L/R shoulders, ZL/ZR triggers,
   Start/Select, D-pad, Circle Pad = left stick, C-stick (New 3DS) = right stick.
 - Button glyphs are always shown (also when playing by touch), always from the Nintendo row of
@@ -109,8 +112,11 @@ sounds, shader files (only their names are used), fonts except the GoNoto fallba
   keeps an empty row of the same size (`row_dollars_chips_space`) so the top screen does not move (it also keeps the
   column as wide as the blind panel). G.HUD itself is top only, since the column reaches into the bottom window.
   The shop sign (in that column) is top only too. The deck peek (holding the deck, G.deck_preview) is bottom only,
-  drawn 1.5x and centred in the bottom window. The full deck view (tapping the deck, G_FUNCS_deck_info) is top only
-  except its Back button, so it can still be closed by touch; the bottom window stays on the run while it is open. Run Info /
+  drawn 1.5x and centred in the bottom window. The full deck view (tapping the deck, G_FUNCS_deck_info) is top only,
+  Back button included (B closes it); the bottom window stays on the run while it is open.
+  Game over and win screens (`overlay_panel_bottom_only`): the panel and Jimbo (the overlay root's children, and Jimbo's card) are bottom only; the red backdrop,
+  which is the root itself, stays on both. Alerts (G.I.ALERT, e.g. the "High Score!" badges) follow the screen of
+  the element they belong to. Run Info /
   Options (wider than the original, 3.0) are stacked to the left of G.HUD_score.
   Tooltips and drag popups (G.I.POPUP) use the screen of the element they belong to. Card tooltips are drawn 1.6x
   (scaled about the point nearest their card, kept inside every screen they are drawn on, the bottom window included) so the description text is readable.
@@ -131,7 +137,7 @@ sounds, shader files (only their names are used), fonts except the GoNoto fallba
   only; while still far from their place they are drawn further down, so they fly in from below the top
   screen. Discarded cards stay on the screen they were last on. Attention text (scoring popups, the
   "-1" on hands/discards) follows the screen of the element it is attached to.
-- The main menu shows `PORT_VERSION` ("3DS-b.0.3", game.h); `G.VERSION` stays the game's own version
+- The main menu shows `PORT_VERSION` ("3DS-b.0.3.1", game.h); `G.VERSION` stays the game's own version
   because it is written into saves. Debug screenshots also write `shot_NN_bottom.png`.
 - Textures: PNGs are decoded with stb_image on first draw (lazy, to save memory) and cut into power-of-two
   tiles of at most 1024x1024; a quad that spans tiles is drawn in pieces. The two studio logos are
@@ -181,7 +187,11 @@ instead, and `TEST_NANEINF=1` gives it 10^308 chips plus the Mult enhancement so
 infinity and shows "naneinf" as in the original (a save then holds `inf`, which loads as nil, also as in
 the original). `TEST_NOPE=1` makes The Wheel the boss of every ante, makes The Wheel of Fortune always fail
 ("Nope!") and hands out a Wheel of Fortune plus a Joker for it to target when a boss round starts. `TEST_JUMBO_ARCANA=1` makes
-the first Small Blind's skip tag a Charm Tag that opens a Jumbo Arcana Pack. While that file exists,
+the first Small Blind's skip tag a Charm Tag that opens a Jumbo Arcana Pack. `TEST_GAMEOVER=1` leaves one hand per round and
+makes every blind need 50,000 chips, so the first hand played ends the run (for checking the game over screen).
+`TEST_WIN=1` starts new runs at ante 8's boss blind (small and big blinds done), always The Wall (it debuffs
+nothing), and gives the first hand's leftmost card 10^50 chips (as `TEST_BIGCARD_EXP=50`), so playing it wins the
+run; the run is saved at blind select, so Continue returns to it. While that file exists,
 stderr goes to `log.txt` next to it, and screenshots (`shot_NN.png`, read back from the 400x240 target)
 are written there too. `SCRIPT` also accepts `t:button=name` (LOVE gamepad names: a, b, x, y, dpup,
 leftshoulder, start...). FPS lines include heap and free linear memory.

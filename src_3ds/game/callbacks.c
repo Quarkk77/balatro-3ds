@@ -68,13 +68,8 @@ GF_IMPL(deck_info) {
     G.SETTINGS.paused = true;
     if (G.deck_preview) { node_remove(&G.deck_preview->n); G.deck_preview = NULL; }
     overlay_menu(UIDEF_deck_info(G.STATE == STATE_SELECTING_HAND || G.STATE == STATE_HAND_PLAYED || G.STATE == STATE_DRAW_TO_HAND), (OverlayArgs){ 0 });
-    /* 3DS: the deck view is on the top screen only, except its Back button,
-     * which stays on the bottom so it can be closed by touch */
-    if (G.OVERLAY_MENU) {
-        G.OVERLAY_MENU->screen_mask = GFX_SCREEN_TOP;
-        UIElement *back = UIBox_get_UIE_by_ID(G.OVERLAY_MENU, "overlay_menu_back_button", NULL);
-        if (back) back->config->screen_mask = GFX_SCREEN_BOTH;
-    }
+    /* 3DS: the deck view is on the top screen only (B closes it, as its Back button's binding) */
+    if (G.OVERLAY_MENU) G.OVERLAY_MENU->screen_mask = GFX_SCREEN_TOP;
 }
 void G_FUNCS_settings_instant(bool instant) {
     G.SETTINGS.paused = true;
