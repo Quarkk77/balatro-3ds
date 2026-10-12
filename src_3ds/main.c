@@ -285,6 +285,11 @@ int main(int argc, char **argv) {
     bool straight = dbg_get("TEST_STRAIGHT") != NULL, straight_done = false;
     /* test hook: TEST_BIGCARD=1 gives the first card of the first hand a
      * permanent bonus so it is worth about 10^6 chips */
+    /* test hook: TEST_NOPE=1 makes The Wheel the boss, makes The Wheel of
+     * Fortune always fail ("Nope!") and hands out one plus a joker for it to
+     * target when the boss round starts */
+    bool nope = dbg_get("TEST_NOPE") != NULL, nope_done = false;
+    if (nope) { G.debug_force_boss = "bl_wheel"; G.debug_force_nope = true; }
     bool bigcard = dbg_get("TEST_BIGCARD") != NULL || dbg_get("TEST_BIGCARD_EXP") || dbg_get("TEST_NANEINF"), bigcard_done = false;
     /* TEST_BIGCARD_EXP=n: worth 10^n chips instead; TEST_NANEINF=1: 10^308 chips
      * plus a Mult enhancement, so chips x mult overflows like the original's "naneinf" */
@@ -317,6 +322,15 @@ int main(int argc, char **argv) {
                 Card_set_ability(c, P_CENTER("m_mult"), false, false);
                 Card_set_edition(c, edition_req_from_key("foil"), true, true);
             }
+        }
+        if (nope && !nope_done && G.STAGE == STAGE_RUN && G.STATE == STATE_SELECTING_HAND && G.GAME.blind && G.GAME.blind->boss && G.jokers && G.consumeables) {
+            nope_done = true;
+            Card *j = create_card("Joker", G.jokers, false, 0, false, false, "j_joker", "dbg");
+            Card_add_to_deck(j, false);
+            CardArea_emplace(G.jokers, j, NULL, false);
+            Card *w = create_card("Tarot", G.consumeables, false, 0, false, false, "c_wheel_of_fortune", "dbg");
+            Card_add_to_deck(w, false);
+            CardArea_emplace(G.consumeables, w, NULL, false);
         }
         if (bigcard && !bigcard_done && G.STAGE == STAGE_RUN && G.STATE == STATE_SELECTING_HAND && G.hand && G.hand->cards.count > 0) {
             bigcard_done = true;

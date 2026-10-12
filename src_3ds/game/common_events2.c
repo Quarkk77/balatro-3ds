@@ -801,6 +801,7 @@ void reset_blinds(void) {
 static int str_cmp_p(const void *a, const void *b) { return strcmp(*(const char *const *)a, *(const char *const *)b); }
 
 const char *get_new_boss(void) {
+    if (G.debug_force_boss) return G.debug_force_boss;   /* debug: TEST_NOPE */
     double ante = G.GAME.round_resets.ante;
     double ma = MAX(1, ante);
     const char **elig = xcalloc((size_t)G.n_blinds + 1, sizeof(char *));

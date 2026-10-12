@@ -1071,6 +1071,8 @@ typedef struct Globals {
     UIBox *achievement_notification, *online_leaderboard, *debug_tools, *profile_button_unused;
     PtrVec HUD_tags;                   /* UIBox* */
     Sprite *SPLASH_BACK, *SPLASH_FRONT, *SPLASH_LOGO;
+    const char *debug_force_boss;   /* debug (TEST_NOPE): boss blind key for new runs */
+    bool debug_force_nope;          /* debug (TEST_NOPE): The Wheel of Fortune always fails */
     Card *splash_jimbo;        /* 3DS: the opening Jimbo, shown on the bottom screen only */
     UIBox *version_label;      /* 3DS: main menu version text, top screen only */
     UIBox *notice_label;       /* 3DS: main menu affiliation notice, top screen only */
@@ -1171,7 +1173,10 @@ typedef struct Globals {
 extern Globals G;
 /* version shown on the main menu; G.VERSION stays the game's version so saves
  * keep matching the desktop build */
-#define PORT_VERSION "3DS-b.0.1.3"
+/* 3DS: cards are drawn this much larger than in the original (G.CARD_W/H);
+ * the main card areas keep the original widths so the layout does not move */
+#define CARD_SCALE_3DS 1.1
+#define PORT_VERSION "3DS-b.0.1.4"
 
 PtrVec *instance_list(const char *name);  /* G.I[name] */
 CardArea *cardarea_by_name(const char *name);
@@ -1299,6 +1304,7 @@ typedef struct {
     bool shadow;
     Col default_col;
     Card *node_card;
+    double text_scale;     /* 3DS: extra text size factor (0 = 1) */
 } LocArgs;
 UIDef *localize_ui(LocArgs args);   /* for 'name'/'text': returns the single row; else NULL (rows in args.nodes) */
 DVal *loc_misc(const char *cat);    /* G.localization.misc[cat] */

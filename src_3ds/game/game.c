@@ -1328,11 +1328,11 @@ void game_start_run(StartRunArgs args) {
         add_event(EVENT(.delay = 0.5, .trigger = TRIG_AFTER, .blocking = 0, .blockable = 0, .func = ev_action_use, .ctx = c));
     }
 
-    G.consumeables = cardarea_new(0, 0, 2.3 * G.CARD_W, 0.95 * G.CARD_H,
+    G.consumeables = cardarea_new(0, 0, 2.3 * G.CARD_W / CARD_SCALE_3DS, 0.95 * G.CARD_H,
                                   CA_ARGS(.card_limit = G.GAME.starting_params.consumable_slots, .has_card_limit = true, .type = "joker",
                                           .highlight_limit = 1, .has_highlight_limit = true));
     G.consumeables->name = "consumeables";
-    G.jokers = cardarea_new(0, 0, 4.9 * G.CARD_W, 0.95 * G.CARD_H,
+    G.jokers = cardarea_new(0, 0, 4.9 * G.CARD_W / CARD_SCALE_3DS, 0.95 * G.CARD_H,
                             CA_ARGS(.card_limit = G.GAME.starting_params.joker_slots, .has_card_limit = true, .type = "joker",
                                     .highlight_limit = 1, .has_highlight_limit = true));
     G.jokers->name = "jokers";
@@ -1340,10 +1340,10 @@ void game_start_run(StartRunArgs args) {
     G.discard->name = "discard";
     G.deck = cardarea_new(0, 0, G.CARD_W * 1.1, 0.95 * G.CARD_H, CA_ARGS(.card_limit = 52, .has_card_limit = true, .type = "deck"));
     G.deck->name = "deck";
-    G.hand = cardarea_new(0, 0, 6 * G.CARD_W, 0.95 * G.CARD_H,
+    G.hand = cardarea_new(0, 0, 6 * G.CARD_W / CARD_SCALE_3DS, 0.95 * G.CARD_H,
                           CA_ARGS(.card_limit = G.GAME.starting_params.hand_size, .has_card_limit = true, .type = "hand"));
     G.hand->name = "hand";
-    G.play = cardarea_new(0, 0, 5.3 * G.CARD_W, 0.95 * G.CARD_H, CA_ARGS(.card_limit = 5, .has_card_limit = true, .type = "play"));
+    G.play = cardarea_new(0, 0, 5.3 * G.CARD_W / CARD_SCALE_3DS, 0.95 * G.CARD_H, CA_ARGS(.card_limit = 5, .has_card_limit = true, .type = "play"));
     G.play->name = "play";
 
     vec_clear(&G.playing_cards);

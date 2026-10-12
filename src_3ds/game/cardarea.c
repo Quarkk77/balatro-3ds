@@ -204,7 +204,10 @@ void CardArea_set_ranks(CardArea *a) {
 static void CardArea_move(Node *n, double dt) {
     CardArea *a = (CardArea *)n;
     if (a == G.hand) {
-        double desired_y = G.TILE_H - G.hand->n.T->h - 1.9 * ((!G.deck_preview && (G.STATE == STATE_SELECTING_HAND || G.STATE == STATE_DRAW_TO_HAND)) ? 1 : 0);
+        /* 3DS: while picking cards the hand is centred on the (bottom) screen
+         * instead of sitting 1.9 below the original's raised position */
+        bool up = !G.deck_preview && (G.STATE == STATE_SELECTING_HAND || G.STATE == STATE_DRAW_TO_HAND);
+        double desired_y = up ? G.TILE_H / 2 - G.hand->n.T->h / 2 : G.TILE_H - G.hand->n.T->h;
         G.hand->n.T->y = 15 * G.real_dt * desired_y + (1 - 15 * G.real_dt) * G.hand->n.T->y;
         if (fabs(desired_y - G.hand->n.T->y) < 0.01) G.hand->n.T->y = desired_y;
         if (G.STATE == STATE_TUTORIAL) G.play->n.T->y = G.hand->n.T->y - (3 + 0.6);

@@ -593,7 +593,23 @@ static int effective_screen(Node *n, int depth) {
     return GFX_SCREEN_BOTH;
 }
 
+/* 3DS: the tutorial Jimbo (with his speech bubble and button) is shown on one
+ * screen: the bottom, unless the step highlights something only the top
+ * screen shows */
+static int tutorial_jimbo_screen(void) {
+    UIBox *ot = G.OVERLAY_TUTORIAL;
+    for (int i = 0; ot && i < ot->highlights.count; i++) {
+        Node *h = ot->highlights.items[i];
+        if (!h || h->REMOVED || (ot->Jimbo && h == &ot->Jimbo->n)) continue;
+        if (effective_screen(h, 0) == GFX_SCREEN_TOP) return GFX_SCREEN_TOP;
+    }
+    return GFX_SCREEN_BOTTOM;
+}
+
 static int screen_for(Node *n) {
+    if (G.OVERLAY_TUTORIAL && G.OVERLAY_TUTORIAL->Jimbo &&
+        (n == &G.OVERLAY_TUTORIAL->Jimbo->n || (G.OVERLAY_TUTORIAL->Jimbo->card && n == &G.OVERLAY_TUTORIAL->Jimbo->card->n)))
+        return tutorial_jimbo_screen();   /* the character and the card it is drawn as */
     /* tooltips, drag popups and attention text (scoring popups) follow
      * whatever they belong to */
     if (IS(n, NT_UIBOX) && (((UIBox *)n)->attention_text || ptrvec_contains(&G.I.POPUP, n))) {
@@ -627,6 +643,27 @@ static void draw_node(Node *n) {
     int prev = gfx_get_screen_mask();
     gfx_set_screen_mask(screen_for(n));
     gfx_push();
+    /* 3DS: card tooltips are drawn 1.6x so their text is readable, scaled
+     * about the point of the tooltip nearest the card and kept on screen */
+    if (IS(n, NT_UIBOX) && ptrvec_contains(&G.I.POPUP, n)) {
+        UIBox *b = (UIBox *)n;
+        Node *owner = b->config ? (b->config->parent ? b->config->parent : b->config->major) : NULL;
+        if (owner && IS(owner, NT_CARD)) {
+            const double k = 1.6, ts = G.TILESCALE * G.TILESIZE;
+            Node *c = n->container && n->container != n ? n->container : NULL;
+            double cx = c ? c->T->x : 0, cy = c ? c->T->y : 0;
+            double bx0 = (cx + n->VT.x) * ts, by0 = (cy + n->VT.y) * ts, bx1 = bx0 + n->VT.w * ts, by1 = by0 + n->VT.h * ts;
+            double ox = (cx + owner->VT.x + owner->VT.w / 2) * ts, oy = (cy + owner->VT.y + owner->VT.h / 2) * ts;
+            double ax = CLAMP(ox, bx0, bx1), ay = CLAMP(oy, by0, by1);
+            double nx0 = ax + (bx0 - ax) * k, nx1 = ax + (bx1 - ax) * k, ny0 = ay + (by0 - ay) * k, ny1 = ay + (by1 - ay) * k;
+            double W = gfx_width(), H = gfx_height(), dx = 0, dy = 0;
+            if (nx0 < 2) dx = 2 - nx0; else if (nx1 > W - 2) dx = W - 2 - nx1;
+            if (ny0 < 2) dy = 2 - ny0; else if (ny1 > H - 2) dy = H - 2 - ny1;
+            gfx_translate(ax + dx, ay + dy);
+            gfx_scale(k, k);
+            gfx_translate(-ax, -ay);
+        }
+    }
     /* 3DS: tooltips of something drawn higher on the bottom screen move with it */
     if (IS(n, NT_UIBOX) && ptrvec_contains(&G.I.POPUP, n) && gfx_get_screen_mask() == GFX_SCREEN_BOTTOM) {
         UIBox *b = (UIBox *)n;
@@ -688,6 +725,8 @@ void game_draw(void) {
             for (int i = 0; i < G.OVERLAY_TUTORIAL->highlights.count; i++) {
                 Node *v = G.OVERLAY_TUTORIAL->highlights.items[i];
                 if (!v || v->REMOVED) continue;
+                int hm = gfx_get_screen_mask();
+                gfx_set_screen_mask(effective_screen(v, 0));   /* 3DS: each on its own screen */
                 gfx_push();
                 Node_translate_container(v);
                 node_draw(v);
@@ -696,6 +735,7 @@ void game_draw(void) {
                     v->vt->draw_children(v);
                 }
                 gfx_pop();
+                gfx_set_screen_mask(hm);
             }
         }
     }

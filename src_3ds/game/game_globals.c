@@ -103,8 +103,9 @@ void game_set_globals(void) {
     G.TILE_W = 20;
     G.TILE_H = 11.5;
     G.DRAW_HASH_BUFF = 2;
-    G.CARD_W = 2.4 * 35 / 41;
-    G.CARD_H = 2.4 * 47 / 41;
+    /* 3DS: every card (hand, jokers, consumables, shop, deck) 10% larger */
+    G.CARD_W = CARD_SCALE_3DS * 2.4 * 35 / 41;
+    G.CARD_H = CARD_SCALE_3DS * 2.4 * 47 / 41;
     G.HIGHLIGHT_H = 0.2 * G.CARD_H;
     G.COLLISION_BUFFER = 0.05;
     G.PITCH_MOD = 1;

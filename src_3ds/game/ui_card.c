@@ -155,8 +155,9 @@ UIBox *UIDEF_card_focus_ui(Card *card) {
 UIDef *UIDEF_speech_bubble(const char *text_key, bool quip, LocVars *vars) {
     UIDef *text = uinodes();
     if (!vars) vars = loc_vars_new();
-    if (quip) localize_ui((LocArgs){ .type = "quips", .key = text_key ? text_key : "lq_1", .vars = vars, .nodes = text });
-    else localize_ui((LocArgs){ .type = "tutorial", .key = text_key ? text_key : "sb_1", .vars = vars, .nodes = text });
+    /* 3DS: Jimbo's speech is scaled up to stay readable, also on the smaller bottom screen */
+    if (quip) localize_ui((LocArgs){ .type = "quips", .key = text_key ? text_key : "lq_1", .vars = vars, .nodes = text, .text_scale = 1.8 });
+    else localize_ui((LocArgs){ .type = "tutorial", .key = text_key ? text_key : "sb_1", .vars = vars, .nodes = text, .text_scale = 1.8 });
     UIDef *row = uinodes();
     for (int i = 0; i < text->count; i++) uidef_add(row, uidef_add_all(UIR(CFG(.align = "cl")), text->nodes[i]));
     return UIROOT(CFG(.align = "cm", .minh = 1, .r = 0.3, .padding = 0.07, .minw = 1, .colour = G.C.JOKER_GREY, .shadow = true),

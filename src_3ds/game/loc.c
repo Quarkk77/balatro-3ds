@@ -369,6 +369,7 @@ UIDef *localize_ui(LocArgs a) {
     bool is_text = !strcmp(a.type, "text");
     double desc_scale = G.LANG->font->DESCSCALE;
     if (G.F_MOBILE_UI) desc_scale *= 1.5;
+    if (a.text_scale > 0) desc_scale *= a.text_scale;
     for (int li = 0; li < lines->nlines; li++) {
         LocLine *line = &lines->lines[li];
         UIDef *final_line = uinodes();

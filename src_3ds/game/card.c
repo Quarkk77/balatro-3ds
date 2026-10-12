@@ -1272,7 +1272,7 @@ void Card_use_consumeable(Card *self, CardArea *area, Card *copier) {
     }
     if (!strcmp(name, "The Wheel of Fortune") || !strcmp(name, "Ectoplasm") || !strcmp(name, "Hex")) {
         PtrVec *pool = !strcmp(name, "The Wheel of Fortune") ? &self->eligible_strength_jokers : &self->eligible_editionless_jokers;
-        if (!strcmp(name, "Ectoplasm") || !strcmp(name, "Hex") || pseudorandom("wheel_of_fortune") < G.GAME.probabilities.normal / self->ability.extra.num) {
+        if (!strcmp(name, "Ectoplasm") || !strcmp(name, "Hex") || (!G.debug_force_nope && pseudorandom("wheel_of_fortune") < G.GAME.probabilities.normal / self->ability.extra.num)) {
             WheelCtx *wc = CTX(WheelCtx);
             wc->self = self; wc->used = used_tarot;
             for (int i = 0; i < pool->count; i++) vec_push(&wc->pool, (Card *)pool->items[i]);
