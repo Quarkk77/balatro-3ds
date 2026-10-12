@@ -1179,7 +1179,7 @@ extern Globals G;
 /* 3DS: cards are drawn this much larger than in the original (G.CARD_W/H);
  * the main card areas keep the original widths so the layout does not move */
 #define CARD_SCALE_3DS 1.1
-#define PORT_VERSION "3DS-b.0.3.1"
+#define PORT_VERSION "3DS-b.0.4"
 
 PtrVec *instance_list(const char *name);  /* G.I[name] */
 CardArea *cardarea_by_name(const char *name);
@@ -1317,7 +1317,9 @@ DVal *loc_misc(const char *cat);    /* G.localization.misc[cat] */
 /* ------------------------------------------------------------------ */
 void set_screen_positions(void);
 int tutorial_jimbo_screen(void);
-bool touch_reaches(Node *n);   /* 3DS: a tap on the bottom screen can hit n */
+bool touch_reaches(Node *n);
+double bottom_dx(Node *n);   /* 3DS: game pixels n is drawn moved right on the bottom screen */
+bool hand_raised3ds(void);   /* 3DS: the hand is up (picking cards) on the bottom screen */   /* 3DS: a tap on the bottom screen can hit n */
 void overlay_panel_bottom_only(void);   /* 3DS: game over / win panel on the bottom screen, backdrop on both */
 void set_overlay_jimbo_card(Card *c);   /* 3DS: GFX_SCREEN_TOP or GFX_SCREEN_BOTTOM */
 double bottom_view_target(void);   /* 3DS: left edge of the bottom screen's window */

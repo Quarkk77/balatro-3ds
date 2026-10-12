@@ -201,13 +201,14 @@ void CardArea_set_ranks(CardArea *a) {
     }
 }
 
+/* 3DS: while picking cards the hand is centred on the (bottom) screen
+ * instead of sitting 1.9 below the original's raised position */
+bool hand_raised3ds(void) { return !G.deck_preview && (G.STATE == STATE_SELECTING_HAND || G.STATE == STATE_DRAW_TO_HAND); }
+
 static void CardArea_move(Node *n, double dt) {
     CardArea *a = (CardArea *)n;
     if (a == G.hand) {
-        /* 3DS: while picking cards the hand is centred on the (bottom) screen
-         * instead of sitting 1.9 below the original's raised position */
-        bool up = !G.deck_preview && (G.STATE == STATE_SELECTING_HAND || G.STATE == STATE_DRAW_TO_HAND);
-        double desired_y = up ? G.TILE_H / 2 - G.hand->n.T->h / 2 : G.TILE_H - G.hand->n.T->h;
+        double desired_y = hand_raised3ds() ? G.TILE_H / 2 - G.hand->n.T->h / 2 : G.TILE_H - G.hand->n.T->h;
         G.hand->n.T->y = 15 * G.real_dt * desired_y + (1 - 15 * G.real_dt) * G.hand->n.T->y;
         if (fabs(desired_y - G.hand->n.T->y) < 0.01) G.hand->n.T->y = desired_y;
         if (G.STATE == STATE_TUTORIAL) G.play->n.T->y = G.hand->n.T->y - (3 + 0.6);
@@ -344,6 +345,7 @@ static void CardArea_draw(Node *n) {
                         UIR(CFG(.align = "cm"), UIT(CFG(.text = "DECK", .scale = 0.38, .colour = G.C.WHITE, .shadow = true))))),
                 UIBCFG(.align = "cl", .has_offset = true, .offset = { -0.5, 0.1 }, .major = n, .parent = n));
             b->n.states.collide.can = false;
+            b->screen_mask = GFX_SCREEN_BOTTOM;   /* 3DS: the peek is bottom only too */
             child_set(n, "peek_deck", &b->n);
         } else if (G.STATE != STATE_SELECTING_HAND && peek) {
             child_set(n, "peek_deck", NULL);

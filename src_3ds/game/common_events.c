@@ -780,13 +780,14 @@ EVFN(ev_eval_dollar) {
 
 EVFN(ev_eval_bottom) {
     RowCtx *c = p_; (void)e_;
-    uibox_new(UIROOT(CFG(.align = "cm", .colour = G.C.CLEAR),
+    UIBox *cash = uibox_new(UIROOT(CFG(.align = "cm", .colour = G.C.CLEAR),
                   UIR(CFG(.id = "cash_out_button", .align = "cm", .padding = 0.1, .minw = 7, .r = 0.15, .colour = G.C.ORANGE, .shadow = true, .hover = true,
                           .one_press = true, .button = G_FUNCS_cash_out, .focus_args = FOCUS(.snap_to = true)),
                       UIT(CFG(.text = (char *)tfmt("%s: ", localize_key("b_cash_out")), .scale = 1, .colour = G.C.UI.TEXT_LIGHT, .shadow = true)),
                       UIT(CFG(.text = (char *)tfmt("%s%s", localize_key("$"), num_str(c->cfg.dollars)), .scale = 1.2 * c->scale, .colour = G.C.WHITE, .shadow = true,
                               .juice = true)))),
               UIBCFG(.align = "tmi", .has_offset = true, .offset = { 0, 0.4 }, .major = &G.round_eval->n));
+    cash->screen_mask = GFX_SCREEN_BOTTOM;   /* 3DS: with the receipt */
     G.GAME.current_round.dollars = c->cfg.dollars;
     sound_play("coin6", c->cfg.has_pitch ? c->cfg.pitch : 1, NAN);
     G.VIBRATION += 1;

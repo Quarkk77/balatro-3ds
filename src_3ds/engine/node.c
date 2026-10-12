@@ -108,6 +108,8 @@ void Node_draw(Node *n) {
 bool Node_collides_with_point(Node *n, Vec2 point) {
     /* 3DS: touches only reach what the bottom screen shows */
     if (G.CONTROLLER.HID.touch && !touch_reaches(n)) return false;
+    /* 3DS: things drawn moved on the bottom screen take touches there */
+    if (G.CONTROLLER.HID.touch) point.x -= bottom_dx(n) / (G.TILESCALE * G.TILESIZE);
     /* 3DS: elements drawn higher on the bottom screen take taps where they are drawn */
     point.y += ui3ds_bottom_shift(n);
     if (!n->container) return false;

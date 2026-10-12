@@ -476,6 +476,87 @@ static void boss_warning(void) {
     }
 }
 
+/* 3DS: round score and chips x mult (G.HUD_score). On the bottom screen
+ * they follow the hand, so they slide down out of view when it is lowered.
+ * While a hand is scored they fly in from the left on the top screen, into
+ * the HUD column's empty row (row_dollars_chips_space), and fly out again
+ * before coming back up on the bottom screen: until then the bottom box (and
+ * Run Info / Options) is drawn held down where the lowered hand would put it. */
+static double score_top_x = -1e9, score_top_v;   /* top copy: x offset from its slot (game units) and velocity */
+static bool score_top_shown;   /* on the top screen at all (not parked off its left edge) */
+static double score_bot_hold;  /* game units the bottom boxes are drawn lower */
+static void update_score_box(double dt) {
+    UIElement *slot = G.HUD_score && G.HUD ? UIBox_get_UIE_by_ID(G.HUD, "row_dollars_chips_space", NULL) : NULL;
+    if (!slot || !G.hand) { score_top_x = -1e9; score_top_v = 0; score_top_shown = false; score_bot_hold = 0; return; }
+    /* moved like any Moveable (Moveable_move_xy): a spring that zips in */
+    double park = -(slot->n.T->x + slot->n.T->w + 1);   /* fully off the left edge */
+    double target = G.STATE == STATE_HAND_PLAYED ? 0 : park;
+    if (score_top_x < park) score_top_x = park;
+    score_top_v = G.exp_times.xy * score_top_v + (1 - G.exp_times.xy) * (target - score_top_x) * 35 * dt;
+    if (fabs(score_top_v) > G.exp_times.max_vel) score_top_v = score_top_v > 0 ? G.exp_times.max_vel : -G.exp_times.max_vel;
+    score_top_x += score_top_v;
+    if (fabs(target - score_top_x) < 0.01 && fabs(score_top_v) < 0.01) { score_top_x = target; score_top_v = 0; }
+    score_top_shown = score_top_x > park + 0.01;
+    double hold = score_top_shown ? MAX(0, (G.TILE_H - G.hand->n.T->h) - G.hand->n.T->y) : 0;
+    if (hold > score_bot_hold) score_bot_hold = hold;   /* held at once */
+    else {                                              /* released smoothly */
+        score_bot_hold += (hold - score_bot_hold) * MIN(1, 15 * dt);
+        if (score_bot_hold < 0.01) score_bot_hold = 0;
+    }
+}
+
+/* 3DS: on the bottom screen the cards in hand (the hand area) and the Play
+ * Hand / Sort Hand / Discard buttons are drawn moved right so they are
+ * centred in the run window (x 80..400); the boxes under them stay. Touches follow (Node_collides_with_point).
+ * Game pixels; 0 outside a run. */
+static double hand_dx;
+static void update_bottom_offsets(void) {
+    hand_dx = 0;
+    if (G.STAGE != STAGE_RUN || !G.hand) return;
+    double ts = G.TILESCALE * G.TILESIZE, rx = G.ROOM_ORIG.x, win = 80;
+    hand_dx = (win + 160) - (rx + G.hand->n.T->x + G.hand->n.T->w / 2) * ts;
+}
+double bottom_dx(Node *n) {
+    if (!hand_dx) return 0;
+    for (int depth = 0; n && depth < 32; depth++) {
+        if (n == &G.hand->n || (G.buttons && n == &G.buttons->n)) return hand_dx;
+        if (IS(n, NT_CARD)) return ((Card *)n)->area == G.hand ? hand_dx : 0;
+        if (IS(n, NT_UIELEMENT)) { UIElement *e = (UIElement *)n; n = n->parent ? n->parent : (e->UIBox ? &e->UIBox->n : NULL); continue; }
+        if (IS(n, NT_UIBOX) && !n->parent) {
+            UIBox *b = (UIBox *)n;   /* tooltips, alerts and popups follow their owner */
+            if (!(b->attention_text || ptrvec_contains(&G.I.POPUP, n) || ptrvec_contains(&G.I.ALERT, n)) || !b->config) return 0;
+            Node *owner = b->config->parent ? b->config->parent : b->config->major;
+            if (owner == n) return 0;
+            n = owner;
+            continue;
+        }
+        n = n->parent;
+    }
+    return 0;
+}
+
+/* draws G.HUD_score on the top screen in the HUD column's empty row, moved
+ * by score_top_x (after G.HUD, so over the column) */
+static void draw_score_box_top(Node *n) {
+    UIElement *slot = UIBox_get_UIE_by_ID(G.HUD, "row_dollars_chips_space", NULL);
+    if (!slot || !score_top_shown) return;
+    double ts = G.TILESCALE * G.TILESIZE;
+    double tx = slot->n.T->x + (slot->n.T->w - n->VT.w) / 2 + score_top_x, ty = slot->n.T->y + (slot->n.T->h - n->VT.h) / 2;
+    UIBox *b = (UIBox *)n;
+    int prev = gfx_get_screen_mask(), pm = b->screen_mask, fd = n->FRAME.DRAW;
+    b->screen_mask = GFX_SCREEN_TOP;
+    n->FRAME.DRAW = -1;   /* UIBoxes draw once per frame; this is a second draw */
+    gfx_set_screen_mask(GFX_SCREEN_TOP);
+    gfx_push();
+    gfx_translate((tx - n->VT.x) * ts, (ty - n->VT.y) * ts);
+    Node_translate_container(n);
+    node_draw(n);
+    gfx_pop();
+    b->screen_mask = pm;
+    n->FRAME.DRAW = fd;
+    gfx_set_screen_mask(prev);
+}
+
 /* 3DS: the bottom screen's 320 wide window into the 400 wide frame. In a
  * run it shows the right part (jokers, hand, deck and blind select fit
  * there; the HUD column on the left is top screen only); otherwise, and
@@ -506,6 +587,8 @@ void game_update(double dt) {
     G.TIMERS.BACKGROUND += dt * G.ARGS_spin.amount;
     G.real_dt = dt;
     update_bottom_view(dt);
+    update_score_box(dt);
+    update_bottom_offsets();
 
     set_alerts();
 
@@ -667,7 +750,13 @@ static int screen_for(Node *n) {
     if (G.SPLASH_LOGO && n == &G.SPLASH_LOGO->n) return GFX_SCREEN_TOP;
     if (G.title_top && n == &G.title_top->n) return GFX_SCREEN_TOP;
     if (G.hand && n == &G.hand->n) return GFX_SCREEN_BOTTOM;   /* the hand area draws its own cards */
+    /* the deck leaves the bottom screen while a hand is scored: the lowered
+     * (centred) hand reaches it there */
+    if (G.deck && n == &G.deck->n && G.STATE == STATE_HAND_PLAYED) return GFX_SCREEN_TOP;
     if (G.deck_preview && n == &G.deck_preview->n) return GFX_SCREEN_BOTTOM;
+    if (G.buttons && n == &G.buttons->n) return GFX_SCREEN_BOTTOM;   /* play hand / sort / discard, under the hand */
+    if (G.round_eval && n == &G.round_eval->n) return GFX_SCREEN_BOTTOM;   /* end of round receipt and Cash Out */
+    if (G.shop && n == &G.shop->n) return GFX_SCREEN_TOP;   /* the shop (played with the controller) */
     if (G.play && n == &G.play->n) return GFX_SCREEN_TOP;
     if (IS(n, NT_CARD)) {
         Card *c = (Card *)n;
@@ -677,15 +766,51 @@ static int screen_for(Node *n) {
         if (overlay_jimbo_card && c == overlay_jimbo_card) return GFX_SCREEN_BOTTOM;   /* game over / win Jimbo */
         if (G.hand && c->area == G.hand) return c->screen3ds = GFX_SCREEN_BOTTOM;   /* cards in hand */
         if (G.play && c->area == G.play) return c->screen3ds = GFX_SCREEN_TOP;      /* played cards */
+        if (G.deck && c->area == G.deck && G.STATE == STATE_HAND_PLAYED) return GFX_SCREEN_TOP;   /* see the deck below */
         if (G.discard && c->area == G.discard && c->screen3ds) return c->screen3ds; /* where it came from */
         if (c->area && c->area->config.view_deck) return effective_screen(&c->area->n, 0);  /* the deck view's screen */
+        if (c->area && (c->area == G.shop_jokers || c->area == G.shop_vouchers || c->area == G.shop_booster))
+            return GFX_SCREEN_TOP;   /* cards for sale, with the shop */
     }
     if (G.STAGE == STAGE_MAIN_MENU && G.STATE != STATE_SPLASH) return GFX_SCREEN_BOTTOM;
     return GFX_SCREEN_BOTH;
 }
 
+static int force_mask;      /* draw_node: screens forced by the bottom-offset split below */
+static double drawn_dx;     /* the bottom offset the current draw is moved by */
 static void draw_node(Node *n) {
     if (!n || n->REMOVED) return;
+    /* 3DS: moved on the bottom screen (bottom_dx): drawn there moved, and on
+     * the top screen (if shown there) as it is. Bottom first: a UIBox draws
+     * only once per frame. */
+    if (!force_mask) {
+        double bdx = bottom_dx(n);
+        if (bdx) {
+            int m = screen_for(n);
+            if (m & GFX_SCREEN_BOTTOM) {
+                force_mask = GFX_SCREEN_BOTTOM; drawn_dx = bdx;
+                gfx_push();
+                gfx_translate(bdx, 0);
+                draw_node(n);
+                gfx_pop();
+                drawn_dx = 0;
+            }
+            if (m & GFX_SCREEN_TOP) { force_mask = GFX_SCREEN_TOP; draw_node(n); }
+            force_mask = 0;
+            return;
+        }
+    }
+    if (score_bot_hold > 0 && ((G.HUD_score && n == &G.HUD_score->n) || (G.HUD_buttons && n == &G.HUD_buttons->n))) {
+        int prev = gfx_get_screen_mask();   /* 3DS: held down while the top screen copy flies out */
+        gfx_set_screen_mask(GFX_SCREEN_BOTTOM);
+        gfx_push();
+        gfx_translate(0, score_bot_hold * G.TILESCALE * G.TILESIZE);
+        Node_translate_container(n);
+        node_draw(n);
+        gfx_pop();
+        gfx_set_screen_mask(prev);
+        return;
+    }
     /* 3DS: the screen wipe (and its card) is centred on the room (x 200); on
      * the bottom screen it is moved to the middle of the bottom window */
     if (G.screenwipe && n == &G.screenwipe->n) {
@@ -725,7 +850,7 @@ static void draw_node(Node *n) {
         return;
     }
     int prev = gfx_get_screen_mask();
-    gfx_set_screen_mask(screen_for(n));
+    gfx_set_screen_mask(force_mask ? force_mask : screen_for(n));
     gfx_push();
     /* 3DS: card tooltips are drawn 1.6x so their text is readable, scaled
      * about the point of the tooltip nearest the card and kept on screen */
@@ -743,6 +868,7 @@ static void draw_node(Node *n) {
             /* kept inside every screen it is drawn on (the bottom one shows a 320 wide window) */
             double x0 = 0, x1 = gfx_width(), H = gfx_height(), dx = 0, dy = 0;
             if (gfx_get_screen_mask() & GFX_SCREEN_BOTTOM) { x0 = gfx_bottom_view(); x1 = MIN(x1, x0 + 320); }
+            x0 -= drawn_dx; x1 -= drawn_dx;   /* already moved by the bottom offset */
             if (nx0 < x0 + 2) dx = x0 + 2 - nx0; else if (nx1 > x1 - 2) dx = x1 - 2 - nx1;
             if (ny0 < 2) dy = 2 - ny0; else if (ny1 > H - 2) dy = H - 2 - ny1;
             gfx_translate(ax + dx, ay + dy);
@@ -767,6 +893,7 @@ static void draw_node(Node *n) {
     node_draw(n);
     gfx_pop();
     gfx_set_screen_mask(prev);
+    if (G.HUD && n == &G.HUD->n && G.HUD_score) draw_score_box_top(&G.HUD_score->n);   /* 3DS: while scoring */
 }
 
 void game_draw(void) {

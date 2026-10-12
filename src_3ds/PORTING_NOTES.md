@@ -111,13 +111,24 @@ sounds, shader files (only their names are used), fonts except the GoNoto fallba
   (`G.HUD_score`, `create_UIBox_HUD_score`, bottom only) under the hand's buttons, left of the deck, and the column
   keeps an empty row of the same size (`row_dollars_chips_space`) so the top screen does not move (it also keeps the
   column as wide as the blind panel). G.HUD itself is top only, since the column reaches into the bottom window.
-  The shop sign (in that column) is top only too. The deck peek (holding the deck, G.deck_preview) is bottom only,
+  The shop sign (in that column) is top only too. The Play Hand / Sort Hand / Discard buttons (G.buttons), the deck's
+  PEEK DECK hint and the end of round receipt (G.round_eval) and its Cash Out button (a separate box, ev_eval_bottom) are bottom only.
+  The shop (G.shop, its cards for sale, their buy buttons and tooltips) is top only, played with the controller;
+  touches do not reach it. The deck peek (holding the deck, G.deck_preview) is bottom only,
   drawn 1.5x and centred in the bottom window. The full deck view (tapping the deck, G_FUNCS_deck_info) is top only,
   Back button included (B closes it); the bottom window stays on the run while it is open.
   Game over and win screens (`overlay_panel_bottom_only`): the panel and Jimbo (the overlay root's children, and Jimbo's card) are bottom only; the red backdrop,
   which is the root itself, stays on both. Alerts (G.I.ALERT, e.g. the "High Score!" badges) follow the screen of
   the element they belong to. Run Info /
   Options (wider than the original, 3.0) are stacked to the left of G.HUD_score.
+  G.HUD_score follows the hand, so it slides off the bottom screen while a hand is scored; meanwhile it is also
+  drawn on the top screen, zipping in from the left into row_dollars_chips_space (moved with the same spring
+  as Moveable_move_xy), and it flies out there before the
+  bottom box (and Run Info / Options) come back up (update_score_box / draw_score_box_top in game_update.c).
+  The cards in hand (and the hand area) and the Play Hand / Sort Hand / Discard buttons are drawn moved right on the
+  bottom screen so they are centred in the run window (bottom_dx / draw_node; touches follow in
+  Node_collides_with_point); the score box and Run Info / Options under them stay.
+  While a hand is scored the deck is top only, as the lowered hand reaches it on the bottom screen.
   Tooltips and drag popups (G.I.POPUP) use the screen of the element they belong to. Card tooltips are drawn 1.6x
   (scaled about the point nearest their card, kept inside every screen they are drawn on, the bottom window included) so the description text is readable.
   Tutorial: Jimbo (his card, speech bubble and Next button) is on one screen, the bottom unless the step
@@ -137,7 +148,7 @@ sounds, shader files (only their names are used), fonts except the GoNoto fallba
   only; while still far from their place they are drawn further down, so they fly in from below the top
   screen. Discarded cards stay on the screen they were last on. Attention text (scoring popups, the
   "-1" on hands/discards) follows the screen of the element it is attached to.
-- The main menu shows `PORT_VERSION` ("3DS-b.0.3.1", game.h); `G.VERSION` stays the game's own version
+- The main menu shows `PORT_VERSION` ("3DS-b.0.4", game.h); `G.VERSION` stays the game's own version
   because it is written into saves. Debug screenshots also write `shot_NN_bottom.png`.
 - Textures: PNGs are decoded with stb_image on first draw (lazy, to save memory) and cut into power-of-two
   tiles of at most 1024x1024; a quad that spans tiles is drawn in pieces. The two studio logos are
