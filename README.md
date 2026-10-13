@@ -13,7 +13,7 @@ Current version: `3DS-b.0.4.3` (beta).
 Needs a New 3DS / New 3DS XL / New 2DS XL with custom firmware and the Homebrew Launcher
 (the original 3DS is not supported), and Balatro 1.0.1o installed through Steam on your computer.
 
-1. Download `balatro_c-<version>.zip` from [Releases](https://github.com/Quarkk77/balatro-3ds/releases)
+1. Download `balatro_c-<version>.zip` from [Releases](https://github.com/springaphex/balatro-3ds/releases)
    and unzip it (or build the `.3dsx` yourself, see below).
 2. Put the 3DS's SD card in your computer and run `./install_balatro_c.sh`. It finds Balatro in your
    Steam libraries, extracts the assets the port needs, and copies everything to `/3ds/balatro_c/`
