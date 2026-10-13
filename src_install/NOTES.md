@@ -11,7 +11,10 @@ downloaded on its own; the script puts it and the assets in place.
   `appmanifest_2379780.acf` unless `--game` is given), checks `version.jkr` is 1.0.1o, extracts the
   asset set the game expects (1x textures, sounds, shaders, fonts except the GoNoto fallbacks,
   localization) with unzip / python3 / bsdtar, finds the SD card (a mounted volume with `/3ds`), and
-  copies everything to `sdmc:/3ds/balatro_c/assets/` plus `balatro_c.3dsx` next to it. The copy goes
+  copies everything to `sdmc:/3ds/balatro_c/assets/` plus `balatro_c.3dsx` next to it.
+  `--azahar` targets the Azahar emulator's virtual SD card instead (`${XDG_DATA_HOME:-~/.local/share}/azahar-emu/sdmc`,
+  the Flatpak's `~/.var/app/org.azahar_emu.Azahar/data/azahar-emu/sdmc`, macOS `~/Library/Application Support/Azahar/sdmc`,
+  Windows `%APPDATA%/Azahar/sdmc`; the user folder must exist, `sdmc/3ds` is created). `--sd` overrides the path. The copy goes
   to `assets.new` first and replaces `assets` only when complete.
 - `README.md` - for users; goes in the release zip.
 

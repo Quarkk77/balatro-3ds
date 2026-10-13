@@ -6,19 +6,30 @@ game's original Lua source. Not affiliated with LocalThunk or Playstack.
 **This repository contains none of Balatro's files** (art, sounds, fonts, shaders, text). To play or
 build it you need your own copy of Balatro, bought through Steam.
 
-Current version: `3DS-b.0.4.2` (beta).
+Current version: `3DS-b.0.4.3` (beta).
 
 ## Playing on a 3DS
 
 Needs a New 3DS / New 3DS XL / New 2DS XL with custom firmware and the Homebrew Launcher
 (the original 3DS is not supported), and Balatro 1.0.1o installed through Steam on your computer.
 
-1. Get `balatro_c.3dsx` (build it, see below) and `src_install/install_balatro_c.sh`.
+1. Download `balatro_c-<version>.zip` from [Releases](https://github.com/Quarkk77/balatro-3ds/releases)
+   and unzip it (or build the `.3dsx` yourself, see below).
 2. Put the 3DS's SD card in your computer and run `./install_balatro_c.sh`. It finds Balatro in your
-   Steam libraries, extracts the assets the port needs, and copies everything to `/3ds/balatro_c/`.
+   Steam libraries, extracts the assets the port needs, and copies everything to `/3ds/balatro_c/`
+   on the SD card.
 3. Start balatro_c from the Homebrew Launcher.
 
-For sound, run the DSP1 homebrew once to create `/3ds/dspfirm.cdc`. Full details and options:
+For sound, run the DSP1 homebrew once to create `/3ds/dspfirm.cdc`.
+
+## Playing in the Azahar emulator
+
+1. Install [Azahar](https://azahar-emu.org/) and start it once.
+2. From the unzipped release, run `./install_balatro_c.sh --azahar`. It installs balatro_c and the assets into Azahar's virtual SD card.
+3. In Azahar, choose **File > Load File** and open the `balatro_c.3dsx` path the installer prints.
+   Keep New 3DS mode on (Emulation > Configure > System).
+
+Full details and options (and sound in Azahar):
 [`src_install/README.md`](src_install/README.md).
 
 ## Repository layout

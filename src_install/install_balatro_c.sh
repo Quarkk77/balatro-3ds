@@ -3,13 +3,14 @@
 #
 # balatro_c does not include any of Balatro's own files. This script takes them from YOUR
 # copy of Balatro (installed through Steam on this computer) and copies them, together with
-# balatro_c.3dsx, to a homebrewed 3DS SD card:
+# balatro_c.3dsx, to a homebrewed 3DS SD card (or the Azahar emulator's virtual SD card, --azahar):
 #
 #   <SD>/3ds/balatro_c/balatro_c.3dsx
 #   <SD>/3ds/balatro_c/assets/...      (textures, sounds, fonts, shaders, localization)
 #
 # Usage: ./install_balatro_c.sh [options]
 #   --sd PATH       the SD card's root folder (default: found automatically)
+#   --azahar        install into the Azahar emulator's virtual SD card instead
 #   --game PATH     Balatro.exe, Balatro.love or the Balatro install folder
 #                   (default: found in your Steam libraries)
 #   --3dsx PATH     the balatro_c.3dsx to install (default: the one next to this script)
@@ -43,12 +44,13 @@ ask_yes() {   # ask_yes "question" -> 0 for yes
 usage() { sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; exit 0; }
 
 # ---------------------------------------------------------------- options
-SD="" GAME="" DSX="" NO_3DSX=0 ASSUME_YES=0
+SD="" GAME="" DSX="" NO_3DSX=0 ASSUME_YES=0 AZAHAR=0
 while [ $# -gt 0 ]; do
     case "$1" in
         --sd) [ $# -ge 2 ] || die "--sd needs a path"; SD="$2"; shift 2 ;;
         --game) [ $# -ge 2 ] || die "--game needs a path"; GAME="$2"; shift 2 ;;
         --3dsx) [ $# -ge 2 ] || die "--3dsx needs a path"; DSX="$2"; shift 2 ;;
+        --azahar) AZAHAR=1; shift ;;
         --no-3dsx) NO_3DSX=1; shift ;;
         -y|--yes) ASSUME_YES=1; shift ;;
         -h|--help) usage ;;
@@ -188,6 +190,24 @@ sd_candidates() {   # mounted volumes that have a /3ds folder (homebrewed 3DS SD
     for d in "$@"; do [ -d "$d/3ds" ] && printf '%s\n' "$d"; done | awk '!seen[$0]++'
 }
 
+azahar_sdmc() {   # the Azahar emulator's virtual SD card (its user folder must exist)
+    local d
+    case "$OS" in
+        linux) set -- "${XDG_DATA_HOME:-$HOME/.local/share}/azahar-emu" "$HOME/.var/app/org.azahar_emu.Azahar/data/azahar-emu" ;;
+        mac) set -- "$HOME/Library/Application Support/Azahar" ;;
+        win) set -- "$(cygpath -u "${APPDATA:-}" 2>/dev/null)/Azahar" ;;
+        wsl) set -- /mnt/c/Users/*/AppData/Roaming/Azahar ;;
+    esac
+    for d in "$@"; do [ -d "$d" ] && { printf '%s\n' "$d/sdmc"; return; }; done
+}
+
+if [ -z "$SD" ] && [ "$AZAHAR" = 1 ]; then
+    SD="$(azahar_sdmc)"
+    [ -n "$SD" ] || die "Azahar's user folder was not found; start Azahar once, or give its sdmc folder with --sd"
+    mkdir -p "$SD/3ds" || die "could not create $SD/3ds"
+elif [ "$AZAHAR" = 1 ]; then
+    mkdir -p "${SD%/}/3ds" || die "could not create $SD/3ds"
+fi
 if [ -z "$SD" ]; then
     cands="$(sd_candidates)"
     n=0; [ -n "$cands" ] && n="$(printf '%s\n' "$cands" | wc -l | tr -d ' ')"
@@ -260,5 +280,12 @@ fi
 sync 2>/dev/null
 
 info ""
-info "Done. balatro_c is installed in /3ds/balatro_c on your SD card."
-info "Eject the SD card safely, put it back in your New 3DS and start balatro_c from the Homebrew Launcher."
+if [ "$AZAHAR" = 1 ]; then
+    info "Done. balatro_c is installed in Azahar's virtual SD card."
+    info "In Azahar, choose File > Load File and open:"
+    info "  $dest/balatro_c.3dsx"
+    info "(New 3DS mode must be on: Emulation > Configure > System.)"
+else
+    info "Done. balatro_c is installed in /3ds/balatro_c on your SD card."
+    info "Eject the SD card safely, put it back in your New 3DS and start balatro_c from the Homebrew Launcher."
+fi

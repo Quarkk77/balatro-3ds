@@ -33,10 +33,31 @@ Balatro, bought and installed through Steam, on the computer you run the install
 
 If balatro_c is started without the assets, it shows a screen explaining how to install them.
 
+## Playing in the Azahar emulator
+
+No 3DS? balatro_c also runs in [Azahar](https://azahar-emu.org/) on the same computer.
+
+1. Install Azahar and start it once (this creates its virtual SD card).
+2. Run the installer with `--azahar`:
+
+   ```
+   ./install_balatro_c.sh --azahar
+   ```
+
+   It finds Azahar's virtual SD card (Linux, including the Flatpak, macOS and Windows) and installs
+   balatro_c there. If yours is somewhere else (e.g. a portable Azahar), give it with
+   `--azahar --sd PATH/TO/sdmc`.
+3. In Azahar, choose **File > Load File** and open `sdmc/3ds/balatro_c/balatro_c.3dsx`
+   (the installer prints the full path).
+
+New 3DS mode must be on (Emulation > Configure > System), otherwise balatro_c shows its Old 3DS
+screen. Touch works with the mouse on the bottom screen.
+
 ## Options
 
 ```
 --sd PATH       the SD card's root folder, if it is not found (or several are)
+--azahar        install into the Azahar emulator instead of an SD card
 --game PATH     Balatro.exe, Balatro.love or the Balatro folder, if it is not in Steam's usual place
 --3dsx PATH     a different balatro_c.3dsx
 --no-3dsx       copy only the assets (e.g. after updating balatro_c through Universal-Updater)
@@ -46,7 +67,9 @@ If balatro_c is started without the assets, it shows a screen explaining how to 
 ## Sound
 
 The 3DS needs a dump of its DSP firmware for homebrew to play sound: run the DSP1 homebrew once,
-which creates `/3ds/dspfirm.cdc`. Without it balatro_c runs silent.
+which creates `/3ds/dspfirm.cdc`. Without it balatro_c runs silent. In Azahar, copy that file from your
+3DS's SD card to `sdmc/3ds/dspfirm.cdc` in Azahar's virtual SD card for sound (it comes from the console
+and cannot be included).
 
 ## Saves
 

@@ -154,7 +154,7 @@ shows it anyway. The Old 3DS lockout uses the system font too when the game's fo
   only; while still far from their place they are drawn further down, so they fly in from below the top
   screen. Discarded cards stay on the screen they were last on. Attention text (scoring popups, the
   "-1" on hands/discards) follows the screen of the element it is attached to.
-- The main menu shows `PORT_VERSION` ("3DS-b.0.4.2", game.h); `G.VERSION` stays the game's own version
+- The main menu shows `PORT_VERSION` ("3DS-b.0.4.3", game.h); `G.VERSION` stays the game's own version
   because it is written into saves. Debug screenshots also write `shot_NN_bottom.png`.
 - Textures: PNGs are decoded with stb_image on first draw (lazy, to save memory) and cut into power-of-two
   tiles of at most 1024x1024; a quad that spans tiles is drawn in pieces. The two studio logos are
