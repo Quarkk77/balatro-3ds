@@ -29,7 +29,6 @@ For sound, run the DSP1 homebrew once to create `/3ds/dspfirm.cdc`. Full details
 | `src/` | The desktop C port (raylib): a straight refactor of the base game that the 3DS port was built from. See [`src/README.md`](src/README.md). |
 | `src_install/` | The installer that copies the assets from your own copy of Balatro to the SD card. |
 | `tools/` | devkitPro install script and emulator test helpers. |
-| `src_lua/` | *Not included.* Balatro's Lua source and assets, extracted from your copy (see below). |
 
 ## Building
 
